@@ -1,0 +1,46 @@
+# Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+**/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android
+**/.gradle/
+**/local.properties
+**/key.properties
+*.jks
+*.keystore
+
+# iOS
+**/Pods/
+**/.symlinks/
+**/Flutter/ephemeral/
+
+# Node
+node_modules/
+**/node_modules/
+
+# Firebase local files
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# NEVER COMMIT FIREBASE ADMIN KEYS
+*-firebase-adminsdk-*.json
+*service-account*.json
+serviceAccountKey.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

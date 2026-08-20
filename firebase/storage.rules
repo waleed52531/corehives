@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+    function isActive() {
+      return isSignedIn() &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+
+    match /receipts/{year}/{month}/{txId}/{fileName} {
+      allow read: if isActive();
+      allow write: if isActive()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /employee_photos/{employeeId}/{fileName} {
+      allow read: if isActive();
+      allow write: if isActive()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

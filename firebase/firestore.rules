@@ -1,0 +1,132 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isActive() {
+      return isSignedIn() && userDoc().active == true;
+    }
+
+    function isAdmin() {
+      return isActive() && userDoc().role == 'admin';
+    }
+
+    function hasPerm(p) {
+      return isActive() &&
+        (isAdmin() || userDoc().permissions[p] == true);
+    }
+
+    function monthOpen(monthKey) {
+      return !exists(
+        /databases/$(database)/documents/monthly_closings/$(monthKey)
+      ) ||
+      get(
+        /databases/$(database)/documents/monthly_closings/$(monthKey)
+      ).data.status == 'open';
+    }
+
+    match /users/{uid} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /employees/{id} {
+      allow read: if hasPerm('viewEmployees');
+      allow write: if hasPerm('manageEmployees');
+    }
+
+    match /employee_compensation/{id} {
+      allow read: if hasPerm('viewPayroll');
+      allow write: if false;
+    }
+
+    match /employee_compensation_history/{id} {
+      allow read: if hasPerm('viewPayroll');
+      allow write: if false;
+    }
+
+    match /departments/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /projects/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /expense_categories/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /expense_subcategories/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /payees/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /upwork_accounts/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /revenue_sources/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /transactions/{txId} {
+      allow read: if isActive();
+
+      allow create: if isActive()
+        && request.resource.data.createdByUserId == request.auth.uid;
+
+      allow update, delete: if isAdmin()
+        || (
+          isActive()
+          && resource.data.createdByUserId == request.auth.uid
+          && monthOpen(resource.data.monthKey)
+        );
+    }
+
+    match /payroll_months/{monthKey} {
+      allow read: if hasPerm('viewPayroll');
+      allow write: if false;
+    }
+
+    match /payroll_entries/{id} {
+      allow read: if hasPerm('viewPayroll');
+      allow write: if false;
+    }
+
+    match /payroll_payments/{id} {
+      allow read: if hasPerm('viewPayroll');
+      allow write: if false;
+    }
+
+    match /monthly_closings/{monthKey} {
+      allow read: if isActive();
+      allow write: if false;
+    }
+
+    match /app_settings/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+  }
+}
