@@ -1,39 +1,111 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../shared/providers/auth_providers.dart';
+
 import '../data/config_repository.dart';
 import '../domain/config_models.dart';
 
 final configRepositoryProvider = Provider<ConfigRepository>((ref) {
-  return ConfigRepository(ref.watch(firestoreProvider));
+  return ConfigRepository(
+    ref.watch(firestoreProvider),
+  );
 });
 
-final activeDepartmentsProvider = StreamProvider<List<Department>>((ref) {
+final activeDepartmentsProvider =
+    StreamProvider.autoDispose<List<Department>>((ref) {
+  final uid = ref.watch(authorizedUidProvider);
+
+  if (uid == null) {
+    return Stream.value(
+      const <Department>[],
+    );
+  }
+
   return ref.watch(configRepositoryProvider).activeDepartments();
 });
 
-final activeExpenseCategoriesProvider = StreamProvider<List<ExpenseCategory>>((ref) {
-  return ref.watch(configRepositoryProvider).activeExpenseCategories();
-});
+final activeExpenseCategoriesProvider =
+    StreamProvider.autoDispose<List<ExpenseCategory>>(
+  (ref) {
+    final uid = ref.watch(authorizedUidProvider);
 
-/// Family provider — pass the selected categoryId to get its active subcategories.
-/// Usage: ref.watch(activeSubcategoriesProvider(categoryId))
+    if (uid == null) {
+      return Stream.value(
+        const <ExpenseCategory>[],
+      );
+    }
+
+    return ref.watch(configRepositoryProvider).activeExpenseCategories();
+  },
+);
+
 final activeSubcategoriesProvider =
-    StreamProvider.family<List<ExpenseSubcategory>, String>((ref, categoryId) {
-  return ref.watch(configRepositoryProvider).activeSubcategoriesForCategory(categoryId);
-});
+    StreamProvider.autoDispose.family<List<ExpenseSubcategory>, String>(
+  (ref, categoryId) {
+    final uid = ref.watch(authorizedUidProvider);
 
-final activeProjectsProvider = StreamProvider<List<Project>>((ref) {
+    if (uid == null) {
+      return Stream.value(
+        const <ExpenseSubcategory>[],
+      );
+    }
+
+    return ref.watch(configRepositoryProvider).activeSubcategoriesForCategory(
+          categoryId,
+        );
+  },
+);
+
+final activeProjectsProvider = StreamProvider.autoDispose<List<Project>>((ref) {
+  final uid = ref.watch(authorizedUidProvider);
+
+  if (uid == null) {
+    return Stream.value(
+      const <Project>[],
+    );
+  }
+
   return ref.watch(configRepositoryProvider).activeProjects();
 });
 
-final activePayeesProvider = StreamProvider<List<Payee>>((ref) {
+final activePayeesProvider = StreamProvider.autoDispose<List<Payee>>((ref) {
+  final uid = ref.watch(authorizedUidProvider);
+
+  if (uid == null) {
+    return Stream.value(
+      const <Payee>[],
+    );
+  }
+
   return ref.watch(configRepositoryProvider).activePayees();
 });
 
-final activeUpworkAccountsProvider = StreamProvider<List<UpworkAccount>>((ref) {
-  return ref.watch(configRepositoryProvider).activeUpworkAccounts();
-});
+final activeUpworkAccountsProvider =
+    StreamProvider.autoDispose<List<UpworkAccount>>(
+  (ref) {
+    final uid = ref.watch(authorizedUidProvider);
 
-final activeRevenueSourcesProvider = StreamProvider<List<RevenueSource>>((ref) {
-  return ref.watch(configRepositoryProvider).activeRevenueSources();
-});
+    if (uid == null) {
+      return Stream.value(
+        const <UpworkAccount>[],
+      );
+    }
+
+    return ref.watch(configRepositoryProvider).activeUpworkAccounts();
+  },
+);
+
+final activeRevenueSourcesProvider =
+    StreamProvider.autoDispose<List<RevenueSource>>(
+  (ref) {
+    final uid = ref.watch(authorizedUidProvider);
+
+    if (uid == null) {
+      return Stream.value(
+        const <RevenueSource>[],
+      );
+    }
+
+    return ref.watch(configRepositoryProvider).activeRevenueSources();
+  },
+);
