@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
 import '../../../shared/models/month_key.dart';
+import 'package:intl/intl.dart';
 import 'payroll_providers.dart';
 
 class PayrollEntryDetailScreen extends ConsumerWidget {
@@ -117,6 +118,24 @@ class PayrollEntryDetailScreen extends ConsumerWidget {
                     .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                     .toList(),
                 onChanged: (v) => setSheetState(() => paymentMethod = v),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Payment Date'),
+                subtitle: Text(DateFormat('yyyy-MM-dd').format(date)),
+                trailing: const Icon(Icons.calendar_today, size: 18),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: date,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    setSheetState(() => date = picked);
+                  }
+                },
               ),
               const SizedBox(height: 12),
               TextField(

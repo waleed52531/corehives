@@ -90,9 +90,7 @@ final monthlyBalancesProvider = Provider.family<AsyncValue<MonthlyBalances>, Str
           continue;
         }
 
-        final d = DateTime.tryParse(tx.transactionDateKey);
-        if (d == null) continue;
-        final txMonthKey = MonthKey.fromDate(d);
+        final txMonthKey = tx.monthKey;
 
         if (txMonthKey.compareTo(monthKey) < 0) {
           if (tx.type == TxType.cashIn) {
@@ -110,9 +108,7 @@ final monthlyBalancesProvider = Provider.family<AsyncValue<MonthlyBalances>, Str
           continue;
         }
 
-        final d = DateTime.tryParse(tx.transactionDateKey);
-        if (d == null) continue;
-        final txMonthKey = MonthKey.fromDate(d);
+        final txMonthKey = tx.monthKey;
 
         if (txMonthKey == monthKey) {
           if (tx.type == TxType.cashIn) {

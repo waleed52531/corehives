@@ -104,12 +104,17 @@ class PayrollRepository {
     final userSnap = await _db.collection('users').doc(uid).get();
     final userName = userSnap.data()?['name'] ?? 'System';
 
-    final monthKey = paymentDateKey.substring(0, 7);
+    // Fetch the payroll entry to check its monthKey
+    final entrySnap = await _db.collection('payroll_entries').doc(payrollEntryId).get();
+    if (!entrySnap.exists) {
+      throw Exception("Payroll entry not found.");
+    }
+    final entryMonthKey = entrySnap.data()?['monthKey'] ?? paymentDateKey.substring(0, 7);
 
     // Check if month is closed
-    final closingSnap = await _db.collection('monthly_closings').doc(monthKey).get();
+    final closingSnap = await _db.collection('monthly_closings').doc(entryMonthKey).get();
     if (closingSnap.exists && closingSnap.data()?['status'] == 'closed') {
-      throw Exception("Month $monthKey is closed. Reopen it before recording payments.");
+      throw Exception("Month $entryMonthKey is closed. Reopen it before recording payments.");
     }
 
     final linkedTxId = 'payroll_payment_$paymentId';
@@ -122,11 +127,11 @@ class PayrollRepository {
       }
 
       final entryRef = _db.collection('payroll_entries').doc(payrollEntryId);
-      final entrySnap = await transaction.get(entryRef);
-      if (!entrySnap.exists) {
+      final entryTransSnap = await transaction.get(entryRef);
+      if (!entryTransSnap.exists) {
         throw Exception("Payroll entry not found.");
       }
-      final entry = entrySnap.data()!;
+      final entry = entryTransSnap.data()!;
 
       final newTotalPaid = (entry['totalPaidAmountPaisa'] ?? 0) + amountPaisa;
       final newRemaining = (entry['expectedAmountPaisa'] ?? 0) - newTotalPaid;
@@ -183,7 +188,7 @@ class PayrollRepository {
         'paidByUserName': userName,
         'paymentMethod': paymentMethod,
         'transactionDateKey': paymentDateKey,
-        'monthKey': monthKey,
+        'monthKey': entry['monthKey'],
         'status': 'completed',
         'attachmentUrl': receiptUrl,
         'attachmentStoragePath': receiptStoragePath,
