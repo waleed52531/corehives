@@ -4,13 +4,60 @@ import '../data/payroll_repository.dart';
 import '../domain/payroll_models.dart';
 
 final payrollRepositoryProvider = Provider<PayrollRepository>((ref) {
-  return PayrollRepository(ref.watch(firestoreProvider), ref.watch(firebaseAuthProvider));
+  return PayrollRepository(
+    ref.watch(firestoreProvider),
+    ref.watch(firebaseAuthProvider),
+  );
 });
 
-final payrollEntriesForMonthProvider = StreamProvider.family<List<PayrollEntry>, String>((ref, monthKey) {
-  return ref.watch(payrollRepositoryProvider).entriesForMonth(monthKey);
-});
+final payrollEntriesForMonthProvider =
+    StreamProvider.autoDispose.family<List<PayrollEntry>, String>(
+  (ref, monthKey) {
+    final uid = ref.watch(authorizedUidProvider);
+    final appUserState = ref.watch(currentAppUserProvider);
+    final appUser = appUserState.asData?.value;
 
-final payrollPaymentsForEntryProvider = StreamProvider.family<List<PayrollPayment>, String>((ref, entryId) {
-  return ref.watch(payrollRepositoryProvider).paymentsForEntry(entryId);
-});
+    // User transition in progress.
+    if (uid == null || appUser == null) {
+      return Stream.value(
+        const <PayrollEntry>[],
+      );
+    }
+
+    // Don't make a query Firestore rules will reject.
+    final canViewPayroll = appUser.isAdmin || appUser.permissions.viewPayroll;
+
+    if (!canViewPayroll) {
+      return Stream.value(
+        const <PayrollEntry>[],
+      );
+    }
+
+    return ref.watch(payrollRepositoryProvider).entriesForMonth(monthKey);
+  },
+);
+
+final payrollPaymentsForEntryProvider =
+    StreamProvider.autoDispose.family<List<PayrollPayment>, String>(
+  (ref, entryId) {
+    final uid = ref.watch(authorizedUidProvider);
+    final appUserState = ref.watch(currentAppUserProvider);
+    final appUser = appUserState.asData?.value;
+
+    if (uid == null || appUser == null) {
+      return Stream.value(
+        const <PayrollPayment>[],
+      );
+    }
+
+    final canViewPayroll = appUser.isAdmin || appUser.permissions.viewPayroll;
+
+    if (!canViewPayroll) {
+      return Stream.value(
+        const <PayrollPayment>[],
+      );
+    }
+
+    return ref.watch(payrollRepositoryProvider).paymentsForEntry(entryId);
+  },
+);
