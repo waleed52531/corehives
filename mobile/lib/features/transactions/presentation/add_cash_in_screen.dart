@@ -7,13 +7,15 @@ import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/receipt_picker.dart';
 import '../../../shared/models/month_key.dart';
 import '../../config/presentation/config_providers.dart';
+import '../../config/domain/config_models.dart';
 import '../domain/transaction_model.dart';
 import '../presentation/transaction_providers.dart';
 
 const _sourceTypes = ['Upwork', 'Front Sale', 'PayPal', 'Direct Client', 'Fiverr', 'Other'];
 
 class AddCashInScreen extends ConsumerStatefulWidget {
-  const AddCashInScreen({super.key});
+  final String? editId;
+  const AddCashInScreen({super.key, this.editId});
   @override
   ConsumerState<AddCashInScreen> createState() => _AddCashInScreenState();
 }
@@ -25,7 +27,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
   final _notesCtrl = TextEditingController();
 
   String _sourceType = 'Upwork';
-  dynamic _upworkAccount;
+  UpworkAccount? _upworkAccount;
   dynamic _project;
   dynamic _salespersonEmployee;
   DateTime _date = DateTime.now();
@@ -35,13 +37,57 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
   bool _uploadFailed = false;
   bool _saving = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.editId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadTransaction();
+      });
+    }
+  }
+
+  void _loadTransaction() async {
+    final repo = ref.read(transactionRepositoryProvider);
+    final tx = await repo.byId(widget.editId!);
+    if (tx != null && mounted) {
+      setState(() {
+        _amountCtrl.text = (tx.amountPaisa / 100).toStringAsFixed(2);
+        _notesCtrl.text = tx.notes ?? '';
+        _clientNameCtrl.text = tx.clientName ?? '';
+        _sourceType = tx.sourceType ?? 'Other';
+        if (tx.status.isNotEmpty) {
+          _status = tx.status[0].toUpperCase() + tx.status.substring(1);
+        }
+        _date = DateTime.tryParse(tx.transactionDateKey) ?? DateTime.now();
+
+        if (tx.upworkAccountId != null) {
+          final accounts = ref.read(activeUpworkAccountsProvider).value ?? [];
+          try {
+            _upworkAccount = accounts.firstWhere((a) => a.id == tx.upworkAccountId);
+          } catch (_) {
+            _upworkAccount = UpworkAccount(id: tx.upworkAccountId!, name: tx.upworkAccountName!, platform: _sourceType.toLowerCase(), active: true);
+          }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _clientNameCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
   static const _statuses = ['Pending', 'Completed', 'Failed', 'Cancelled'];
 
   Future<void> _submit() async {
     if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
-    if (_sourceType == 'Upwork' && _upworkAccount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an Upwork account')));
+    if ((_sourceType == 'Upwork' || _sourceType == 'Fiverr') && _upworkAccount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select an $_sourceType account')));
       return;
     }
 
@@ -53,18 +99,18 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
     }
 
     final repo = ref.read(transactionRepositoryProvider);
-    final docRef = repo.newDocRef();
+    final docId = widget.editId ?? repo.newDocRef().id;
     final amountPaisa = (num.parse(_amountCtrl.text) * 100).round();
     final dateKey = MonthKey.dateKeyFromDate(_date);
     final monthKey = MonthKey.fromDate(_date);
 
     final tx = Transaction(
-      id: docRef.id,
+      id: docId,
       type: TxType.cashIn,
       sourceType: _sourceType,
       amountPaisa: amountPaisa,
-      upworkAccountId: _sourceType == 'Upwork' ? _upworkAccount?.id : null,
-      upworkAccountName: _sourceType == 'Upwork' ? _upworkAccount?.name : null,
+      upworkAccountId: (_sourceType == 'Upwork' || _sourceType == 'Fiverr') ? _upworkAccount?.id : null,
+      upworkAccountName: (_sourceType == 'Upwork' || _sourceType == 'Fiverr') ? _upworkAccount?.name : null,
       projectId: _sourceType == 'Front Sale' ? _project?.id : null,
       projectName: _sourceType == 'Front Sale' ? _project?.name : null,
       salespersonEmployeeId: _sourceType == 'Front Sale' ? _salespersonEmployee?.id : null,
@@ -84,25 +130,47 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
     );
 
     try {
-      await repo.create(tx);
+      if (widget.editId != null) {
+        await repo.update(docId, {
+          'sourceType': _sourceType,
+          'amountPaisa': amountPaisa,
+          'upworkAccountId': (_sourceType == 'Upwork' || _sourceType == 'Fiverr') ? _upworkAccount?.id : null,
+          'upworkAccountName': (_sourceType == 'Upwork' || _sourceType == 'Fiverr') ? _upworkAccount?.name : null,
+          'projectId': _sourceType == 'Front Sale' ? _project?.id : null,
+          'projectName': _sourceType == 'Front Sale' ? _project?.name : null,
+          'salespersonEmployeeId': _sourceType == 'Front Sale' ? _salespersonEmployee?.id : null,
+          'salespersonName': _sourceType == 'Front Sale' ? _salespersonEmployee?.fullName : null,
+          'clientName': _sourceType == 'Front Sale' || _sourceType == 'Direct Client'
+              ? _clientNameCtrl.text.trim()
+              : null,
+          'transactionDateKey': dateKey,
+          'monthKey': monthKey,
+          'status': _status.toLowerCase(),
+          'notes': _notesCtrl.text.trim(),
+          'updatedByUserId': user.uid,
+          'updatedByName': user.name,
+        });
+      } else {
+        await repo.create(tx);
+      }
 
       if (_receiptFile != null) {
         try {
           final result = await ref.read(receiptUploadServiceProvider).uploadReceipt(
                 file: _receiptFile!,
-                transactionId: docRef.id,
+                transactionId: docId,
                 year: _date.year,
                 month: _date.month,
                 onProgress: (p) => setState(() => _uploadProgress = p),
               );
           await repo.updateAttachment(
-            txId: docRef.id,
+            txId: docId,
             url: result.url,
             storagePath: result.storagePath,
             status: AttachmentStatus.uploaded,
           );
         } catch (_) {
-          await repo.markAttachmentFailed(docRef.id);
+          await repo.markAttachmentFailed(docId);
           setState(() => _uploadFailed = true);
         }
       }
@@ -128,7 +196,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
     final projectsAsync = ref.watch(activeProjectsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Cash In')),
+      appBar: AppBar(title: Text(widget.editId != null ? 'Edit Cash In' : 'Add Cash In')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -138,38 +206,82 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
               value: _sourceType,
               decoration: const InputDecoration(labelText: 'Source Type', border: OutlineInputBorder()),
               items: _sourceTypes.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (v) => setState(() => _sourceType = v!),
+              onChanged: (v) => setState(() {
+                _sourceType = v!;
+                _upworkAccount = null;
+                _project = null;
+                _salespersonEmployee = null;
+                _clientNameCtrl.clear();
+              }),
             ),
             const SizedBox(height: 12),
             AmountField(controller: _amountCtrl, label: 'PKR Amount Received'),
             const SectionHeader('Source Details'),
 
-            if (_sourceType == 'Upwork')
+            if (_sourceType == 'Upwork' || _sourceType == 'Fiverr')
               upworkAsync.when(
-                data: (accounts) => DropdownButtonFormField(
-                  value: _upworkAccount,
-                  decoration: const InputDecoration(labelText: 'Upwork Account', border: OutlineInputBorder()),
-                  items: accounts.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
-                  onChanged: (v) => setState(() => _upworkAccount = v),
-                ),
+                data: (accounts) {
+                  final targetPlatform = _sourceType == 'Upwork' ? 'upwork' : 'fiverr';
+                  final filtered = accounts.where((a) => a.platform == targetPlatform).toList();
+                  final dropdownItems = _upworkAccount != null && !filtered.contains(_upworkAccount)
+                      ? [...filtered, _upworkAccount!]
+                      : filtered;
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<UpworkAccount>(
+                          value: _upworkAccount,
+                          decoration: InputDecoration(
+                            labelText: _sourceType == 'Upwork' ? 'Upwork Account' : 'Fiverr Account',
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: dropdownItems.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
+                          onChanged: (v) => setState(() => _upworkAccount = v),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        tooltip: 'Manage Platform IDs',
+                        onPressed: () => context.push('/platform-ids'),
+                      ),
+                    ],
+                  );
+                },
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Could not load Upwork accounts'),
+                error: (_, __) => Text('Could not load $_sourceType accounts'),
               ),
 
             if (_sourceType == 'Front Sale') ...[
               projectsAsync.when(
-                data: (projects) => DropdownButtonFormField(
-                  value: _project,
-                  decoration: const InputDecoration(labelText: 'Project / Client', border: OutlineInputBorder()),
-                  items: projects.map((p) => DropdownMenuItem(value: p, child: Text(p.name))).toList(),
-                  onChanged: (v) => setState(() => _project = v),
-                ),
+                data: (projects) {
+                  final dropdownItems = _project != null && !projects.contains(_project)
+                      ? [...projects, _project!]
+                      : projects;
+                  return DropdownButtonFormField<dynamic>(
+                    value: _project,
+                    decoration: InputDecoration(
+                      labelText: 'Project / Client',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _project == null
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => setState(() => _project = null),
+                            ),
+                    ),
+                    items: dropdownItems.map((p) => DropdownMenuItem(value: p, child: Text(p.name))).toList(),
+                    onChanged: (v) => setState(() => _project = v),
+                  );
+                },
                 loading: () => const LinearProgressIndicator(),
                 error: (_, __) => const Text('Could not load projects'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _clientNameCtrl,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(labelText: 'Client Name (optional)', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
@@ -180,10 +292,11 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             if (_sourceType == 'Direct Client')
               TextFormField(
                 controller: _clientNameCtrl,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(labelText: 'Client / Project', border: OutlineInputBorder()),
               ),
 
-            if (_sourceType == 'PayPal' || _sourceType == 'Fiverr' || _sourceType == 'Other')
+            if (_sourceType == 'PayPal' || _sourceType == 'Other')
               const Text('No additional fields required for this source type.',
                   style: TextStyle(fontSize: 12, color: Colors.grey)),
 
@@ -191,7 +304,10 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             DropdownButtonFormField<String>(
               value: _status,
               decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-              items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              items: _statuses.map((s) {
+                final display = s == 'completed' ? 'Completed' : 'Pending';
+                return DropdownMenuItem(value: s, child: Text(display));
+              }).toList(),
               onChanged: (v) => setState(() => _status = v!),
             ),
             const SizedBox(height: 12),
@@ -223,6 +339,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             const SectionHeader('Notes'),
             TextFormField(
               controller: _notesCtrl,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
               maxLines: 2,
             ),
@@ -232,7 +349,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
               style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               child: _saving
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save Cash In'),
+                  : Text(widget.editId != null ? 'Save Changes' : 'Save Cash In'),
             ),
           ],
         ),

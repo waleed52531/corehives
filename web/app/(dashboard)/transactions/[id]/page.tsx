@@ -87,7 +87,10 @@ export default function TransactionDetailPage() {
         <Row label="Subcategory" value={tx.subcategoryName} />
         <Row label="Project" value={tx.projectName} />
         <Row label="Payee" value={tx.payeeName} />
-        <Row label="Upwork Account" value={tx.upworkAccountName} />
+        <Row 
+          label={tx.subcategoryName?.toLowerCase().includes("fiverr") ? "Fiverr Account" : "Upwork Account"} 
+          value={tx.upworkAccountName} 
+        />
         <Row label="Client" value={tx.clientName} />
         <Row label="Salesperson" value={tx.salespersonName} />
         <Row label="Paid By" value={tx.paidByUserName} />

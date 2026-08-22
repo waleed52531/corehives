@@ -1,0 +1,28 @@
+service-account.json
+scripts/*-adminsdk-*.json
+*.json
+!google-services.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!manifest.json
+!Contents.json
+
+# Dependencies
+node_modules/
+
+# Cloud Functions build output
+functions/lib/
+
+# Next.js build output
+web/.next/
+
+# Local environment variables
+.env*.local
+.env
+
+# Debug logs
+*-debug.log
+.log
+
+

@@ -64,4 +64,30 @@ class TransactionRepository {
     if (!doc.exists) return null;
     return Transaction.fromMap(doc.id, doc.data()!);
   }
+
+  Stream<List<Transaction>> activeSince(String dateKey) {
+    return _col
+        .where('deletedAt', isNull: true)
+        .where('transactionDateKey', isGreaterThanOrEqualTo: dateKey)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Transaction.fromMap(d.id, d.data())).toList());
+  }
+
+  Stream<List<Transaction>> pendingCashIns() {
+    return _col
+        .where('type', isEqualTo: 'cash_in')
+        .where('status', isEqualTo: 'pending')
+        .where('deletedAt', isNull: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Transaction.fromMap(d.id, d.data())).toList());
+  }
+
+  Stream<List<Transaction>> pendingReimbursements() {
+    return _col
+        .where('type', isEqualTo: 'expense')
+        .where('status', isEqualTo: 'pending')
+        .where('deletedAt', isNull: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Transaction.fromMap(d.id, d.data())).toList());
+  }
 }

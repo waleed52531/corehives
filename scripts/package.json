@@ -2,7 +2,8 @@
   "name": "corehives-scripts",
   "private": true,
   "scripts": {
-    "seed:config": "node seed-config.js"
+    "seed:config": "node seed-config.js",
+    "seed:employees": "node seed-employees.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0"

@@ -68,6 +68,8 @@ class Transaction {
 
   final String createdByUserId;
   final String createdByName;
+  final String? updatedByUserId;
+  final String? updatedByName;
   final Timestamp? createdAt;
   final Timestamp? updatedAt;
   final Timestamp? deletedAt;
@@ -110,6 +112,8 @@ class Transaction {
     this.originalMonthKey,
     required this.createdByUserId,
     required this.createdByName,
+    this.updatedByUserId,
+    this.updatedByName,
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
@@ -153,6 +157,8 @@ class Transaction {
         originalMonthKey: m['originalMonthKey'],
         createdByUserId: m['createdByUserId'] ?? '',
         createdByName: m['createdByName'] ?? '',
+        updatedByUserId: m['updatedByUserId'],
+        updatedByName: m['updatedByName'],
         createdAt: m['createdAt'],
         updatedAt: m['updatedAt'],
         deletedAt: m['deletedAt'],
@@ -195,6 +201,8 @@ class Transaction {
         if (originalMonthKey != null) 'originalMonthKey': originalMonthKey,
         'createdByUserId': createdByUserId,
         'createdByName': createdByName,
+        'updatedByUserId': updatedByUserId,
+        'updatedByName': updatedByName,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'deletedAt': null,

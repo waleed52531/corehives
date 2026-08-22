@@ -19,4 +19,38 @@ class EmployeeRepository {
     if (!doc.exists) return null;
     return EmployeeCompensation.fromMap(doc.id, doc.data()!);
   }
+
+  Future<void> updateEmploymentStatus(String employeeId, String status) async {
+    await _db.collection('employees').doc(employeeId).update({
+      'employmentStatus': status,
+    });
+  }
+
+  Future<void> create(Employee employee) async {
+    await _db.collection('employees').doc(employee.id).set({
+      'employeeCode': employee.employeeCode,
+      'fullName': employee.fullName,
+      'jobTitle': employee.jobTitle,
+      'departmentId': employee.departmentId,
+      'employmentType': employee.employmentType,
+      'employmentStatus': employee.employmentStatus,
+      'companyEmail': employee.companyEmail,
+      'personalEmail': employee.personalEmail,
+      'phoneNumber': employee.phoneNumber,
+      'whatsappNumber': employee.whatsappNumber,
+      'joiningDate': employee.joiningDate,
+      'reportingManagerEmployeeId': employee.reportingManagerEmployeeId,
+      'workLocation': employee.workLocation,
+      'shiftTiming': employee.shiftTiming,
+      'notes': employee.notes,
+      'address': employee.address,
+      'emergencyContactName': employee.emergencyContactName,
+      'emergencyContactPhone': employee.emergencyContactPhone,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  String newDocId() {
+    return _db.collection('employees').doc().id;
+  }
 }

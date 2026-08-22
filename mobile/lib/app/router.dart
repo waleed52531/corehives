@@ -13,7 +13,10 @@ import '../features/payroll/presentation/payroll_screen.dart';
 import '../features/payroll/presentation/payroll_entry_detail_screen.dart';
 import '../features/employees/presentation/employee_directory_screen.dart';
 import '../features/employees/presentation/employee_detail_screen.dart';
+import '../features/employees/presentation/add_employee_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/config/presentation/platform_ids_screen.dart';
+import '../features/transactions/presentation/pending_reimbursements_screen.dart';
 import '../shared/providers/auth_providers.dart';
 import 'app_shell.dart';
 
@@ -62,8 +65,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/forgot-password', builder: (c, s) => const ForgotPasswordScreen()),
 
       // Full-screen routes pushed on top of the shell (not part of bottom nav).
-      GoRoute(path: '/add-expense', parentNavigatorKey: _rootNavigatorKey, builder: (c, s) => const AddExpenseScreen()),
-      GoRoute(path: '/add-cash-in', parentNavigatorKey: _rootNavigatorKey, builder: (c, s) => const AddCashInScreen()),
+      GoRoute(
+        path: '/add-expense',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => AddExpenseScreen(editId: s.uri.queryParameters['editId']),
+      ),
+      GoRoute(
+        path: '/add-cash-in',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => AddCashInScreen(editId: s.uri.queryParameters['editId']),
+      ),
       GoRoute(
         path: '/transactions/:id',
         parentNavigatorKey: _rootNavigatorKey,
@@ -79,6 +90,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/employees/:id',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (c, s) => EmployeeDetailScreen(employeeId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/add-employee',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => const AddEmployeeScreen(),
+      ),
+      GoRoute(
+        path: '/platform-ids',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => const PlatformIdsScreen(),
+      ),
+      GoRoute(
+        path: '/pending-reimbursements',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => const PendingReimbursementsScreen(),
       ),
 
       // Bottom-nav shell routes.

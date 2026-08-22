@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../shared/providers/auth_providers.dart';
 
 const _appVersion = '0.1.0 (V1)';
@@ -19,11 +20,11 @@ class ProfileScreen extends ConsumerWidget {
           Center(
             child: CircleAvatar(
               radius: 36,
-              child: Text(user?.name.isNotEmpty == true ? user!.name[0] : '?', style: const TextStyle(fontSize: 28)),
+              child: Text(user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 28)),
             ),
           ),
           const SizedBox(height: 12),
-          Center(child: Text(user?.name ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+          Center(child: Text(_capitalizeWords(user?.name), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
           Center(child: Text(user?.email ?? '', style: const TextStyle(color: Colors.grey))),
           const SizedBox(height: 4),
           Center(
@@ -45,6 +46,13 @@ class ProfileScreen extends ConsumerWidget {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.credit_card_outlined),
+            title: const Text('Platform IDs'),
+            subtitle: const Text('Manage Upwork, Fiverr & Freelancer IDs'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/platform-ids'),
+          ),
+          ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Logout', style: TextStyle(color: Colors.red)),
             onTap: () => ref.read(authRepositoryProvider).signOut(),
@@ -54,5 +62,13 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _capitalizeWords(String? s) {
+    if (s == null || s.isEmpty) return '';
+    return s.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
   }
 }

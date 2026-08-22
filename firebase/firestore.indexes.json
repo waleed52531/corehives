@@ -51,6 +51,20 @@
       ]
     },
     {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "deletedAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "transactionDateKey",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "payroll_entries",
       "queryScope": "COLLECTION",
       "fields": [

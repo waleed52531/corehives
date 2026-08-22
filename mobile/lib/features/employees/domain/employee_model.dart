@@ -16,6 +16,9 @@ class Employee {
   final String? workLocation;
   final String? shiftTiming;
   final String? notes;
+  final String? address;
+  final String? emergencyContactName;
+  final String? emergencyContactPhone;
 
   Employee({
     required this.id,
@@ -35,6 +38,9 @@ class Employee {
     this.workLocation,
     this.shiftTiming,
     this.notes,
+    this.address,
+    this.emergencyContactName,
+    this.emergencyContactPhone,
   });
 
   factory Employee.fromMap(String id, Map<String, dynamic> m) => Employee(
@@ -55,6 +61,9 @@ class Employee {
         workLocation: m['workLocation'],
         shiftTiming: m['shiftTiming'],
         notes: m['notes'],
+        address: m['address'],
+        emergencyContactName: m['emergencyContactName'],
+        emergencyContactPhone: m['emergencyContactPhone'],
       );
 }
 

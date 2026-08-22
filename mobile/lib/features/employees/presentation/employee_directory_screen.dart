@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/providers/auth_providers.dart';
 import 'employee_providers.dart';
 
 class EmployeeDirectoryScreen extends ConsumerStatefulWidget {
@@ -15,9 +16,18 @@ class _EmployeeDirectoryScreenState extends ConsumerState<EmployeeDirectoryScree
   @override
   Widget build(BuildContext context) {
     final employeesAsync = ref.watch(allEmployeesProvider);
+    final user = ref.watch(currentAppUserProvider).value;
+    final canManage = user != null && user.can((p) => p.manageEmployees);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Employees')),
+      floatingActionButton: canManage
+          ? FloatingActionButton(
+              onPressed: () => context.push('/add-employee'),
+              tooltip: 'Add Employee',
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: Column(
         children: [
           Padding(

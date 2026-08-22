@@ -12,7 +12,8 @@ import '../domain/transaction_model.dart';
 import '../presentation/transaction_providers.dart';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
-  const AddExpenseScreen({super.key});
+  final String? editId;
+  const AddExpenseScreen({super.key, this.editId});
   @override
   ConsumerState<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
@@ -22,17 +23,82 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _payeeCtrl = TextEditingController();
+  String _status = 'completed';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.editId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadTransaction();
+      });
+    }
+  }
+
+  void _loadTransaction() async {
+    final repo = ref.read(transactionRepositoryProvider);
+    final tx = await repo.byId(widget.editId!);
+    if (tx != null && mounted) {
+      setState(() {
+        _amountCtrl.text = (tx.amountPaisa / 100).toStringAsFixed(2);
+        _descCtrl.text = tx.description ?? '';
+        _notesCtrl.text = tx.notes ?? '';
+        _payeeCtrl.text = tx.payeeName ?? '';
+        _paymentMethod = tx.paymentMethod;
+        _status = tx.status;
+        _date = DateTime.tryParse(tx.transactionDateKey) ?? DateTime.now();
+
+        // Populate Category
+        final categories = ref.read(activeExpenseCategoriesProvider).value ?? [];
+        try {
+          _category = categories.firstWhere((c) => c.id == tx.categoryId);
+        } catch (_) {
+          _category = ExpenseCategory(id: tx.categoryId!, name: tx.categoryName!, active: true, order: 0);
+        }
+
+        // Populate Subcategory
+        if (_category != null) {
+          final subRef = ref.read(activeSubcategoriesProvider(_category!.id)).value ?? [];
+          try {
+            _subcategory = subRef.firstWhere((s) => s.id == tx.subcategoryId);
+          } catch (_) {
+            _subcategory = ExpenseSubcategory(id: tx.subcategoryId!, categoryId: tx.categoryId!, name: tx.subcategoryName!, active: true, order: 0);
+          }
+        }
+
+        // Populate Platform Account
+        if (tx.upworkAccountId != null) {
+          final accounts = ref.read(activeUpworkAccountsProvider).value ?? [];
+          try {
+            _selectedPlatformAccount = accounts.firstWhere((a) => a.id == tx.upworkAccountId);
+          } catch (_) {
+            _selectedPlatformAccount = UpworkAccount(id: tx.upworkAccountId!, name: tx.upworkAccountName!, platform: 'upwork', active: true);
+          }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _descCtrl.dispose();
+    _notesCtrl.dispose();
+    _payeeCtrl.dispose();
+    super.dispose();
+  }
 
   ExpenseCategory? _category;
   ExpenseSubcategory? _subcategory;
-  dynamic _payee; // Payee?
-  dynamic _project; // Project?
   DateTime _date = DateTime.now();
   String? _paymentMethod;
   File? _receiptFile;
   double? _uploadProgress;
   bool _uploadFailed = false;
   bool _saving = false;
+
+  UpworkAccount? _selectedPlatformAccount;
 
   static const _paymentMethods = ['Cash', 'Bank Transfer', 'JazzCash', 'EasyPaisa', 'Card', 'Other'];
 
@@ -55,29 +121,49 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     }
 
     final repo = ref.read(transactionRepositoryProvider);
-    final docRef = repo.newDocRef();
+    final docId = widget.editId ?? repo.newDocRef().id;
     final amountPaisa = (num.parse(_amountCtrl.text) * 100).round();
     final dateKey = MonthKey.dateKeyFromDate(_date);
     final monthKey = MonthKey.fromDate(_date);
 
+    final payees = ref.read(activePayeesProvider).value ?? [];
+    final enteredPayeeName = _payeeCtrl.text.trim();
+    String? payeeId;
+    String? payeeName;
+
+    if (enteredPayeeName.isNotEmpty) {
+      payeeName = enteredPayeeName;
+      try {
+        final matchingPayee = payees.firstWhere(
+          (p) => p.name.toLowerCase() == enteredPayeeName.toLowerCase(),
+        );
+        payeeId = matchingPayee.id;
+        payeeName = matchingPayee.name;
+      } catch (_) {
+        // Keep payeeId as null, keep payeeName as typed
+      }
+    }
+
     final tx = Transaction(
-      id: docRef.id,
+      id: docId,
       type: TxType.expense,
       amountPaisa: amountPaisa,
       categoryId: _category!.id,
       categoryName: _category!.name,
       subcategoryId: _subcategory!.id,
       subcategoryName: _subcategory!.name,
-      payeeId: _payee?.id,
-      payeeName: _payee?.name,
-      projectId: _project?.id,
-      projectName: _project?.name,
+      payeeId: payeeId,
+      payeeName: payeeName,
+      projectId: null,
+      projectName: null,
+      upworkAccountId: _selectedPlatformAccount?.id,
+      upworkAccountName: _selectedPlatformAccount?.name,
       paidByUserId: user.uid,
       paidByUserName: user.name,
       paymentMethod: _paymentMethod,
       transactionDateKey: dateKey,
       monthKey: monthKey,
-      status: 'completed',
+      status: _status.toLowerCase(),
       attachmentStatus: _receiptFile != null ? AttachmentStatus.pending : AttachmentStatus.none,
       description: _descCtrl.text.trim(),
       notes: _notesCtrl.text.trim(),
@@ -88,25 +174,47 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     try {
       // Save the transaction FIRST — never lose the financial record because
       // of a receipt upload failure.
-      await repo.create(tx);
+      if (widget.editId != null) {
+        await repo.update(docId, {
+          'amountPaisa': amountPaisa,
+          'categoryId': _category!.id,
+          'categoryName': _category!.name,
+          'subcategoryId': _subcategory!.id,
+          'subcategoryName': _subcategory!.name,
+          'payeeId': payeeId,
+          'payeeName': payeeName,
+          'upworkAccountId': _selectedPlatformAccount?.id,
+          'upworkAccountName': _selectedPlatformAccount?.name,
+          'paymentMethod': _paymentMethod,
+          'transactionDateKey': dateKey,
+          'monthKey': monthKey,
+          'description': _descCtrl.text.trim(),
+          'notes': _notesCtrl.text.trim(),
+          'status': _status.toLowerCase(),
+          'updatedByUserId': user.uid,
+          'updatedByName': user.name,
+        });
+      } else {
+        await repo.create(tx);
+      }
 
       if (_receiptFile != null) {
         try {
           final result = await ref.read(receiptUploadServiceProvider).uploadReceipt(
                 file: _receiptFile!,
-                transactionId: docRef.id,
+                transactionId: docId,
                 year: _date.year,
                 month: _date.month,
                 onProgress: (p) => setState(() => _uploadProgress = p),
               );
           await repo.updateAttachment(
-            txId: docRef.id,
+            txId: docId,
             url: result.url,
             storagePath: result.storagePath,
             status: AttachmentStatus.uploaded,
           );
         } catch (_) {
-          await repo.markAttachmentFailed(docRef.id);
+          await repo.markAttachmentFailed(docId);
           setState(() => _uploadFailed = true);
         }
       }
@@ -129,11 +237,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(activeExpenseCategoriesProvider);
-    final projectsAsync = ref.watch(activeProjectsProvider);
     final payeesAsync = ref.watch(activePayeesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Expense')),
+      appBar: AppBar(title: Text(widget.editId != null ? 'Edit Expense' : 'Add Expense')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -142,16 +249,21 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             AmountField(controller: _amountCtrl),
             const SectionHeader('Category'),
             categoriesAsync.when(
-              data: (cats) => DropdownButtonFormField<ExpenseCategory>(
-                value: _category,
-                decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-                onChanged: (v) => setState(() {
-                  _category = v;
-                  _subcategory = null;
-                }),
-                validator: (v) => v == null ? 'Required' : null,
-              ),
+              data: (cats) {
+                final dropdownItems = _category != null && !cats.contains(_category)
+                    ? [...cats, _category!]
+                    : cats;
+                return DropdownButtonFormField<ExpenseCategory>(
+                  value: _category,
+                  decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                  items: dropdownItems.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                  onChanged: (v) => setState(() {
+                    _category = v;
+                    _subcategory = null;
+                  }),
+                  validator: (v) => v == null ? 'Required' : null,
+                );
+              },
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const Text('Could not load categories'),
             ),
@@ -160,46 +272,78 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               Consumer(builder: (context, ref, _) {
                 final subsAsync = ref.watch(activeSubcategoriesProvider(_category!.id));
                 return subsAsync.when(
-                  data: (subs) => DropdownButtonFormField<ExpenseSubcategory>(
-                    value: _subcategory,
-                    decoration: const InputDecoration(labelText: 'Subcategory', border: OutlineInputBorder()),
-                    items: subs.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
-                    onChanged: (v) => setState(() => _subcategory = v),
-                    validator: (v) => v == null ? 'Required' : null,
-                  ),
+                  data: (subs) {
+                    final subName = _subcategory?.name;
+                    final isUpwork = subName == 'Upwork Connects' || subName == 'Upwork Subscription';
+                    final isFiverr = subName == 'Fiverr Expense';
+                    final isFreelancer = subName == 'Freelancer Subscription';
+                    final showPlatformDropdown = isUpwork || isFiverr || isFreelancer;
+                    final targetPlatform = isUpwork ? 'upwork' : (isFiverr ? 'fiverr' : 'freelancer');
+                    final labelText = isUpwork ? 'Select Upwork ID' : (isFiverr ? 'Select Fiverr ID' : 'Select Freelancer ID');
+
+                    final dropdownItems = _subcategory != null && !subs.contains(_subcategory)
+                        ? [...subs, _subcategory!]
+                        : subs;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<ExpenseSubcategory>(
+                          value: _subcategory,
+                          decoration: const InputDecoration(labelText: 'Subcategory', border: OutlineInputBorder()),
+                          items: dropdownItems.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
+                          onChanged: (v) => setState(() {
+                            _subcategory = v;
+                            _selectedPlatformAccount = null;
+                          }),
+                          validator: (v) => v == null ? 'Required' : null,
+                        ),
+                        if (showPlatformDropdown) ...[
+                          const SizedBox(height: 12),
+                          Consumer(builder: (context, ref, _) {
+                            final accountsAsync = ref.watch(activeUpworkAccountsProvider);
+                            return accountsAsync.when(
+                              data: (accounts) {
+                                final filtered = accounts.where((a) => a.platform == targetPlatform).toList();
+                                final dropdownItems = _selectedPlatformAccount != null && !filtered.contains(_selectedPlatformAccount)
+                                    ? [...filtered, _selectedPlatformAccount!]
+                                    : filtered;
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<UpworkAccount>(
+                                        value: _selectedPlatformAccount,
+                                        decoration: InputDecoration(
+                                          labelText: labelText,
+                                          border: const OutlineInputBorder(),
+                                        ),
+                                        items: dropdownItems
+                                            .map((a) => DropdownMenuItem(value: a, child: Text(a.name)))
+                                            .toList(),
+                                        onChanged: (a) => setState(() => _selectedPlatformAccount = a),
+                                        validator: (a) => a == null ? 'Required' : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.add_circle_outline),
+                                      tooltip: 'Manage Platform IDs',
+                                      onPressed: () => context.push('/platform-ids'),
+                                    ),
+                                  ],
+                                );
+                              },
+                              loading: () => const LinearProgressIndicator(),
+                              error: (_, __) => const Text('Could not load accounts'),
+                            );
+                          }),
+                        ],
+                      ],
+                    );
+                  },
                   loading: () => const LinearProgressIndicator(),
                   error: (_, __) => const Text('Could not load subcategories'),
                 );
               }),
-            const SectionHeader('Optional Details'),
-            payeesAsync.when(
-              data: (payees) => DropdownButtonFormField(
-                value: _payee,
-                decoration: const InputDecoration(labelText: 'Paid To / Payee (optional)', border: OutlineInputBorder()),
-                items: payees.map((p) => DropdownMenuItem(value: p, child: Text(p.name))).toList(),
-                onChanged: (v) => setState(() => _payee = v),
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 12),
-            projectsAsync.when(
-              data: (projects) => DropdownButtonFormField(
-                value: _project,
-                decoration: const InputDecoration(labelText: 'Project (optional)', border: OutlineInputBorder()),
-                items: projects.map((p) => DropdownMenuItem(value: p, child: Text(p.name))).toList(),
-                onChanged: (v) => setState(() => _project = v),
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _paymentMethod,
-              decoration: const InputDecoration(labelText: 'Payment Method (optional)', border: OutlineInputBorder()),
-              items: _paymentMethods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-              onChanged: (v) => setState(() => _paymentMethod = v),
-            ),
             const SizedBox(height: 12),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -216,6 +360,83 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 if (picked != null) setState(() => _date = picked);
               },
             ),
+            const SectionHeader('Notes'),
+            TextFormField(
+              controller: _descCtrl,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+            ),
+            const SectionHeader('Optional Details'),
+            payeesAsync.when(
+              data: (payees) => TextFormField(
+                controller: _payeeCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Paid To / Payee (optional)',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: payees.isEmpty
+                      ? null
+                      : PopupMenuButton<Payee>(
+                          icon: const Icon(Icons.arrow_drop_down),
+                          onSelected: (Payee value) {
+                            setState(() {
+                              _payeeCtrl.text = value.name;
+                            });
+                          },
+                          itemBuilder: (BuildContext context) {
+                            return payees.map((Payee p) {
+                              return PopupMenuItem<Payee>(
+                                value: p,
+                                child: Text(p.name),
+                              );
+                            }).toList();
+                          },
+                        ),
+                ),
+              ),
+              loading: () => TextFormField(
+                controller: _payeeCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Paid To / Payee (optional)',
+                  border: OutlineInputBorder(),
+                  suffixIcon: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              ),
+              error: (_, __) => TextFormField(
+                controller: _payeeCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Paid To / Payee (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _paymentMethod,
+              decoration: const InputDecoration(labelText: 'Payment Method (optional)', border: OutlineInputBorder()),
+              items: _paymentMethods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+              onChanged: (v) => setState(() => _paymentMethod = v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _status,
+              decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                DropdownMenuItem(value: 'pending', child: Text('Pending Reimbursement')),
+              ],
+              onChanged: (v) {
+                if (v != null) setState(() => _status = v);
+              },
+            ),
             const SectionHeader('Receipt'),
             ReceiptPicker(
               file: _receiptFile,
@@ -226,24 +447,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 _uploadFailed = false;
               }),
             ),
-            const SectionHeader('Notes'),
-            TextFormField(
-              controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _notesCtrl,
-              decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
-              maxLines: 2,
-            ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _submit,
               style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               child: _saving
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save Expense'),
+                  : Text(widget.editId != null ? 'Save Changes' : 'Save Expense'),
             ),
           ],
         ),

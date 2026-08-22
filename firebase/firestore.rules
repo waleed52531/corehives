@@ -82,7 +82,7 @@ service cloud.firestore {
 
     match /upwork_accounts/{id} {
       allow read: if isActive();
-      allow write: if isAdmin();
+      allow write: if isActive();
     }
 
     match /revenue_sources/{id} {
@@ -106,22 +106,22 @@ service cloud.firestore {
 
     match /payroll_months/{monthKey} {
       allow read: if hasPerm('viewPayroll');
-      allow write: if false;
+      allow write: if hasPerm('managePayroll');
     }
 
     match /payroll_entries/{id} {
       allow read: if hasPerm('viewPayroll');
-      allow write: if false;
+      allow write: if hasPerm('managePayroll');
     }
 
     match /payroll_payments/{id} {
       allow read: if hasPerm('viewPayroll');
-      allow write: if false;
+      allow write: if hasPerm('managePayroll');
     }
 
     match /monthly_closings/{monthKey} {
       allow read: if isActive();
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /app_settings/{id} {

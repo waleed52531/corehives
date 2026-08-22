@@ -54,6 +54,7 @@ async function main() {
     { name: "Design" },
     { name: "Sales" },
     { name: "Business Development" },
+    { name: "Marketing" },
     { name: "HR / Operations" },
     { name: "Finance" },
     { name: "Support" },
@@ -80,7 +81,6 @@ async function main() {
     "projects",
     [
       { name: "CoreHives", type: "Company" },
-      { name: "TokenGlade", type: "Internal Product" },
       { name: "ZihuBridge", type: "Internal Product" },
       { name: "Curelia", type: "Internal Product" },
       { name: "CoreClinicSolutions", type: "Internal Product" },
@@ -100,7 +100,7 @@ async function main() {
       "API / Credits", "Project Expense", "Other Development Cost",
     ]},
     { name: "Software & Subscriptions", order: 3, subcategories: [
-      "AI Tools", "Communication Tools", "Hosting", "VPS / Servers", "Domains",
+      "AI Tools", "Communication Tools", "Zoom", "Hosting", "VPS / Servers", "Domains",
       "Social Media / Verification", "General Software", "Other Software",
     ]},
     { name: "Freelancing Platform Costs", order: 4, subcategories: [

@@ -40,7 +40,22 @@ async function requirePermission(uid: string | undefined, permission: string) {
 }
 
 function monthKeyFromDateKey(dateKey: string): string {
-  return dateKey.slice(0, 7);
+  const parts = dateKey.split("-");
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+
+  if (day >= 10) {
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    return `${nextYear.toString().padStart(4, "0")}-${nextMonth.toString().padStart(2, "0")}`;
+  } else {
+    return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+  }
 }
 
 /* ------------------------------------------------------------------ */

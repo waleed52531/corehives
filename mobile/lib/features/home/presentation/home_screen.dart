@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../shared/models/money.dart';
 import '../../../shared/models/month_key.dart';
 import '../../../shared/widgets/common_widgets.dart';
-import '../../../shared/providers/auth_providers.dart';
 import '../../transactions/presentation/transaction_providers.dart';
 import '../../transactions/domain/transaction_model.dart';
 import '../../payroll/presentation/payroll_providers.dart';
@@ -16,21 +14,26 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final monthKey = ref.watch(selectedMonthKeyProvider);
     final txAsync = ref.watch(transactionsForMonthProvider);
-    final user = ref.watch(currentAppUserProvider).value;
     final payrollAsync = ref.watch(payrollEntriesForMonthProvider(monthKey));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('CoreHives — $monthKey'),
+        title: const Text('CoreHives'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'All Transactions',
+            onPressed: () => context.go('/transactions'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.credit_card_outlined),
+            tooltip: 'Platform IDs',
+            onPressed: () => context.push('/platform-ids'),
+          ),
           IconButton(
             icon: const Icon(Icons.people_outline),
             tooltip: 'Employees',
             onPressed: () => context.push('/employees'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: () => _pickMonth(context, ref),
           ),
         ],
       ),
@@ -58,13 +61,88 @@ class HomeScreen extends ConsumerWidget {
             bySource[key] = (bySource[key] ?? 0) + t.amountPaisa;
           }
 
-          final recent = transactions.take(8).toList();
+          final balancesAsync = ref.watch(monthlyBalancesProvider(monthKey));
 
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(transactionsForMonthProvider),
+            onRefresh: () async {
+              ref.invalidate(transactionsForMonthProvider);
+              ref.invalidate(allTransactionsSinceBackupProvider);
+              ref.invalidate(pendingUserWithdrawalsProvider);
+              ref.invalidate(pendingReimbursementsProvider);
+            },
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const PendingWithdrawalsSection(),
+                const PendingReimbursementsSection(),
+                balancesAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Could not load balances: $e'),
+                  data: (bal) => Card(
+                    color: Colors.green.shade50,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('CUMULATIVE LEDGER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                              InkWell(
+                                onTap: () => _pickMonth(context, ref),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        monthKey.toString(),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade800,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Icon(Icons.arrow_drop_down, size: 16, color: Colors.green.shade800),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Opening Balance:', style: TextStyle(color: Colors.grey)),
+                              MoneyText(paisa: bal.openingBalancePaisa, isCashIn: true, fontSize: 15),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Monthly Net Flow:', style: TextStyle(color: Colors.grey)),
+                              MoneyText(paisa: net, isCashIn: net >= 0, fontSize: 15),
+                            ],
+                          ),
+                          const Divider(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Closing Balance:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              MoneyText(paisa: bal.closingBalancePaisa, isCashIn: bal.closingBalancePaisa >= 0, fontSize: 18),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 Row(
                   children: [
                     Expanded(child: _SummaryCard(label: 'Cash In', paisa: totalCashIn, isCashIn: true)),
@@ -82,13 +160,10 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SectionHeader('Cash In Breakdown'),
                 if (bySource.isEmpty) const Text('No cash in recorded this month.', style: TextStyle(color: Colors.grey)),
-                ...bySource.entries.map((e) => _BreakdownRow(label: e.key, paisa: e.value, isCashIn: true)),
+                ...bySource.entries.map((e) => _BreakdownRow(label: _capitalizeWords(e.key), paisa: e.value, isCashIn: true)),
                 const SectionHeader('Expenses Paid By'),
                 if (byPerson.isEmpty) const Text('No expenses recorded this month.', style: TextStyle(color: Colors.grey)),
-                ...byPerson.entries.map((e) => _BreakdownRow(label: e.key, paisa: e.value, isCashIn: false)),
-                const SectionHeader('Recent Transactions'),
-                if (recent.isEmpty) const Text('No transactions yet.', style: TextStyle(color: Colors.grey)),
-                ...recent.map((t) => _RecentTxTile(tx: t)),
+                ...byPerson.entries.map((e) => _BreakdownRow(label: _capitalizeWords(e.key), paisa: e.value, isCashIn: false)),
               ],
             ),
           );
@@ -109,6 +184,14 @@ class HomeScreen extends ConsumerWidget {
     if (picked != null) {
       ref.read(selectedMonthKeyProvider.notifier).state = MonthKey.fromDate(picked);
     }
+  }
+
+  String _capitalizeWords(String? s) {
+    if (s == null || s.isEmpty) return '';
+    return s.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
   }
 }
 
@@ -154,29 +237,142 @@ class _BreakdownRow extends StatelessWidget {
   }
 }
 
-class _RecentTxTile extends StatelessWidget {
-  final Transaction tx;
-  const _RecentTxTile({required this.tx});
+class PendingWithdrawalsSection extends ConsumerWidget {
+  const PendingWithdrawalsSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final isCashIn = tx.type == TxType.cashIn;
-    final title = isCashIn ? (tx.sourceType ?? 'Cash In') : (tx.categoryName ?? 'Expense');
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(isCashIn ? Icons.arrow_downward : Icons.arrow_upward,
-          color: isCashIn ? Colors.green : Colors.red),
-      title: Text(title),
-      subtitle: Text('${tx.transactionDateKey} · ${tx.paidByUserName}'),
-      trailing: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          MoneyText(paisa: tx.amountPaisa, isCashIn: isCashIn, fontSize: 14),
-          if (tx.attachmentStatus.name == 'uploaded') const Icon(Icons.attachment, size: 14, color: Colors.grey),
-        ],
-      ),
-      onTap: () => context.push('/transactions/${tx.id}'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingUserWithdrawalsProvider);
+
+    return pendingAsync.when(
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+
+        final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
+
+        return Card(
+          color: Colors.amber.shade50,
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'ACTION REQUIRED',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'You have ${list.length} pending withdrawals to resolve.',
+                            style: const TextStyle(fontSize: 13, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Text('Total Amount: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              MoneyText(paisa: totalAmountPaisa, isCashIn: true, fontSize: 13),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/transactions'),
+                      child: const Text('View All'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class PendingReimbursementsSection extends ConsumerWidget {
+  const PendingReimbursementsSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingReimbursementsProvider);
+
+    return pendingAsync.when(
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+
+        final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
+
+        return Card(
+          color: Colors.blue.shade50,
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.payment_outlined, color: Colors.blue.shade800),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'PENDING REIMBURSEMENTS',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'There are ${list.length} expenses waiting to be reimbursed.',
+                            style: const TextStyle(fontSize: 13, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Text('Total Amount: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              MoneyText(paisa: totalAmountPaisa, isCashIn: false, fontSize: 13),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.push('/pending-reimbursements'),
+                      child: const Text('View All'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

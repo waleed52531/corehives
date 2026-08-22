@@ -28,6 +28,14 @@ class ExpenseCategory {
         active: m['active'] ?? false,
         order: m['order'] ?? 0,
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExpenseCategory && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class ExpenseSubcategory {
@@ -52,6 +60,14 @@ class ExpenseSubcategory {
         active: m['active'] ?? false,
         order: m['order'] ?? 0,
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExpenseSubcategory && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 enum ProjectType { company, internalProduct, clientProject, other }
@@ -85,6 +101,14 @@ class Project {
         active: m['active'] ?? false,
         notes: m['notes'],
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Project && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class Payee {
@@ -109,16 +133,35 @@ class UpworkAccount {
   final String id;
   final String name;
   final bool active;
+  final String? platform; // 'upwork' | 'fiverr' | 'freelancer'
   final String? notes;
+  final String? ownerName; // 'Ishtiaq' | 'Zain' | 'Hanzalah'
 
-  UpworkAccount({required this.id, required this.name, required this.active, this.notes});
+  UpworkAccount({
+    required this.id,
+    required this.name,
+    required this.active,
+    this.platform,
+    this.notes,
+    this.ownerName,
+  });
 
   factory UpworkAccount.fromMap(String id, Map<String, dynamic> m) => UpworkAccount(
         id: id,
         name: m['name'] ?? '',
         active: m['active'] ?? false,
+        platform: m['platform'] ?? 'upwork',
         notes: m['notes'],
+        ownerName: m['ownerName'],
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpworkAccount && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class RevenueSource {

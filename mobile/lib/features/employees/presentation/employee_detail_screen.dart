@@ -73,6 +73,12 @@ class _OverviewTab extends StatelessWidget {
         _row('Personal Email', employee.personalEmail),
         _row('Phone', employee.phoneNumber),
         _row('WhatsApp', employee.whatsappNumber),
+        _row('Address', employee.address),
+        if (employee.emergencyContactName != null || employee.emergencyContactPhone != null) ...[
+          const SectionHeader('Emergency Contact'),
+          _row('Name', employee.emergencyContactName),
+          _row('Phone', employee.emergencyContactPhone),
+        ],
       ],
     );
   }
@@ -91,18 +97,43 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
-class _EmploymentTab extends StatelessWidget {
+class _EmploymentTab extends ConsumerWidget {
   final Employee employee;
   const _EmploymentTab({required this.employee});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentAppUserProvider).value;
+    final canManage = user != null && user.can((p) => p.manageEmployees);
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _row('Employee Code', employee.employeeCode),
         _row('Employment Type', employee.employmentType),
-        _row('Employment Status', employee.employmentStatus),
+        _row(
+          'Employment Status',
+          employee.employmentStatus,
+          trailing: canManage
+              ? SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      side: BorderSide(color: employee.employmentStatus == 'Active' ? Colors.red : Colors.green),
+                    ),
+                    onPressed: () async {
+                      final newStatus = employee.employmentStatus == 'Active' ? 'Inactive' : 'Active';
+                      await ref.read(employeeRepositoryProvider).updateEmploymentStatus(employee.id, newStatus);
+                    },
+                    child: Text(
+                      employee.employmentStatus == 'Active' ? 'Mark Inactive' : 'Mark Active',
+                      style: TextStyle(color: employee.employmentStatus == 'Active' ? Colors.red : Colors.green, fontSize: 12),
+                    ),
+                  ),
+                )
+              : null,
+        ),
         _row('Joining Date', employee.joiningDate),
         _row('Work Location', employee.workLocation),
         _row('Shift Timing', employee.shiftTiming),
@@ -111,7 +142,7 @@ class _EmploymentTab extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, String? value) {
+  Widget _row(String label, String? value, {Widget? trailing}) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -119,6 +150,10 @@ class _EmploymentTab extends StatelessWidget {
         children: [
           SizedBox(width: 140, child: Text(label, style: const TextStyle(color: Colors.grey))),
           Expanded(child: Text(value)),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing,
+          ],
         ],
       ),
     );

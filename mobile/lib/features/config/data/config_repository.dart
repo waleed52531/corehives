@@ -61,4 +61,52 @@ class ConfigRepository {
       .orderBy('name')
       .snapshots()
       .map((s) => s.docs.map((d) => RevenueSource.fromMap(d.id, d.data())).toList());
+
+  Future<void> addUpworkAccount({
+    required String name,
+    required String platform,
+    required String userId,
+    required String userName,
+    String? ownerName,
+  }) async {
+    final docId = name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'(^-|-$)'), '');
+    await _db.collection('upwork_accounts').doc(docId).set({
+      'name': name,
+      'active': true,
+      'platform': platform,
+      'notes': '',
+      'ownerName': ownerName,
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdByUserId': userId,
+      'createdByName': userName,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedByUserId': userId,
+      'updatedByName': userName,
+    });
+  }
+
+  Future<void> updateUpworkAccount({
+    required String id,
+    required String name,
+    required String userId,
+    required String userName,
+    String? ownerName,
+  }) async {
+    await _db.collection('upwork_accounts').doc(id).update({
+      'name': name,
+      'ownerName': ownerName,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedByUserId': userId,
+      'updatedByName': userName,
+    });
+  }
+
+  Future<void> deleteUpworkAccount(String id) async {
+    await _db.collection('upwork_accounts').doc(id).update({
+      'active': false,
+    });
+  }
 }

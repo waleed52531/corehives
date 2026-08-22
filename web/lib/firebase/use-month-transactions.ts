@@ -28,5 +28,10 @@ export function useMonthTransactions(monthKey: string) {
 
 export function currentMonthKey(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  if (d.getDate() >= 10) {
+    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  } else {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
 }

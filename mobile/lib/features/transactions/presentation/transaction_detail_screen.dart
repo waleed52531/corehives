@@ -57,12 +57,13 @@ class TransactionDetailScreen extends ConsumerWidget {
                   _row('Upwork Account', t.upworkAccountName),
                   _row('Client', t.clientName),
                   _row('Salesperson', t.salespersonName),
-                  _row('Paid By', t.paidByUserName),
-                  _row('Payment Method', t.paymentMethod),
+                  _row('Paid By', _capitalizeWords(t.paidByUserName)),
+                  _row('Payment Method', _capitalizeWords(t.paymentMethod)),
                   _row('Transaction Date', t.transactionDateKey),
-                  _row('Status', t.status),
-                  _row('Created By', t.createdByName),
+                  _row('Status', _formatStatus(t)),
+                  _row('Created By', _capitalizeWords(t.createdByName)),
                   _row('Created At', _formatTs(t.createdAt)),
+                  _row('Updated By', _capitalizeWords(t.updatedByName)),
                   _row('Updated At', _formatTs(t.updatedAt)),
                   if (t.notes != null && t.notes!.isNotEmpty) _row('Notes', t.notes),
                   if (t.description != null && t.description!.isNotEmpty) _row('Description', t.description),
@@ -82,12 +83,32 @@ class TransactionDetailScreen extends ConsumerWidget {
                         style: TextStyle(color: Colors.orange, fontSize: 12)),
                   ],
                   const SizedBox(height: 24),
-                  if (canEdit)
-                    OutlinedButton.icon(
-                      onPressed: () => _confirmDelete(context, ref, t.id, user.uid),
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      label: const Text('Delete Transaction', style: TextStyle(color: Colors.red)),
+                  if (canEdit) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              final route = isCashIn
+                                  ? '/add-cash-in?editId=${t.id}'
+                                  : '/add-expense?editId=${t.id}';
+                              context.push(route);
+                            },
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('Edit Transaction'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _confirmDelete(context, ref, t.id, user.uid),
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
                 ],
               );
             },
@@ -109,6 +130,22 @@ class TransactionDetailScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _capitalizeWords(String? s) {
+    if (s == null || s.isEmpty) return '';
+    return s.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+  }
+
+  String _formatStatus(Transaction t) {
+    if (t.status == 'completed') return 'Completed';
+    if (t.status == 'pending') {
+      return t.type == TxType.expense ? 'Pending Reimbursement' : 'Pending';
+    }
+    return _capitalizeWords(t.status);
   }
 
   String _formatTs(dynamic ts) {

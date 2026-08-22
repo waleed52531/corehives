@@ -5,6 +5,8 @@ import { doc, addDoc, collection, updateDoc, serverTimestamp } from "firebase/fi
 import { db, auth } from "@/lib/firebase/client";
 import { Modal } from "@/components/ui/modal";
 import type { Employee } from "@/lib/types/employee";
+import { updateEmployeeCompensation } from "@/lib/firebase/functions";
+import { rupeesToPaisa } from "@/lib/utils/money";
 
 const EMPLOYMENT_TYPES = ["Full-Time", "Part-Time", "Contract", "Intern", "Partner", "Freelancer"];
 const EMPLOYMENT_STATUSES = ["Active", "Inactive", "On Leave", "Resigned", "Terminated"];
@@ -28,6 +30,8 @@ export function EmployeeFormModal({
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [joiningDate, setJoiningDate] = useState("");
   const [workLocation, setWorkLocation] = useState("");
+  const [salary, setSalary] = useState("");
+  const [effectiveFrom, setEffectiveFrom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -43,11 +47,15 @@ export function EmployeeFormModal({
       setWhatsappNumber(editing.whatsappNumber ?? "");
       setJoiningDate(editing.joiningDate ?? "");
       setWorkLocation(editing.workLocation ?? "");
+      setSalary("");
+      setEffectiveFrom("");
     } else {
       setFullName(""); setEmployeeCode(""); setJobTitle("");
       setEmploymentType("Full-Time"); setEmploymentStatus("Active");
       setCompanyEmail(""); setPhoneNumber(""); setWhatsappNumber("");
       setJoiningDate(""); setWorkLocation("");
+      setSalary("");
+      setEffectiveFrom("");
     }
     setError(null);
   }, [editing, open]);
@@ -78,13 +86,23 @@ export function EmployeeFormModal({
           updatedByUserId: uid,
         });
       } else {
-        await addDoc(collection(db, "employees"), {
+        const docRef = await addDoc(collection(db, "employees"), {
           ...payload,
           createdAt: serverTimestamp(),
           createdByUserId: uid,
           updatedAt: serverTimestamp(),
           updatedByUserId: uid,
         });
+        const salaryNum = Number(salary);
+        if (salaryNum > 0) {
+          const effFrom = effectiveFrom || joiningDate || new Date().toISOString().slice(0, 10);
+          await updateEmployeeCompensation({
+            employeeId: docRef.id,
+            baseSalaryPaisa: rupeesToPaisa(salaryNum),
+            compensationType: "Salary",
+            effectiveFrom: effFrom,
+          });
+        }
       }
       onClose();
     } catch {
@@ -117,6 +135,12 @@ export function EmployeeFormModal({
         <Field label="WhatsApp Number" value={whatsappNumber} onChange={setWhatsappNumber} />
         <Field label="Joining Date" value={joiningDate} onChange={setJoiningDate} type="date" />
         <Field label="Work Location" value={workLocation} onChange={setWorkLocation} />
+        {!editing && (
+          <>
+            <Field label="Base Salary (PKR)" value={salary} onChange={setSalary} type="number" />
+            <Field label="Salary Effective From" value={effectiveFrom} onChange={setEffectiveFrom} type="date" />
+          </>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm">Cancel</button>
