@@ -21,11 +21,6 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('CoreHives'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.receipt_long_outlined),
-            tooltip: 'All Transactions',
-            onPressed: () => context.go('/transactions'),
-          ),
-          IconButton(
             icon: const Icon(Icons.credit_card_outlined),
             tooltip: 'Platform IDs',
             onPressed: () => context.push('/platform-ids'),
