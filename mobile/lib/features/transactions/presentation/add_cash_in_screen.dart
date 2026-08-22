@@ -31,7 +31,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
   dynamic _project;
   dynamic _salespersonEmployee;
   DateTime _date = DateTime.now();
-  String _status = 'Completed';
+  String _status = 'Pending';
   File? _receiptFile;
   double? _uploadProgress;
   bool _uploadFailed = false;
@@ -304,10 +304,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             DropdownButtonFormField<String>(
               value: _status,
               decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-              items: _statuses.map((s) {
-                final display = s == 'completed' ? 'Completed' : 'Pending';
-                return DropdownMenuItem(value: s, child: Text(display));
-              }).toList(),
+              items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
               onChanged: (v) => setState(() => _status = v!),
             ),
             const SizedBox(height: 12),
