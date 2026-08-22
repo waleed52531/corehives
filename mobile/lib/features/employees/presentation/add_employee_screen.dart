@@ -210,6 +210,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
           children: [
             TextFormField(
               controller: _nameCtrl,
+              textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Full Name', border: OutlineInputBorder()),
               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
             ),
@@ -227,6 +228,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _titleCtrl,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Job Title', border: OutlineInputBorder()),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
                   ),
@@ -377,6 +379,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _emergencyNameCtrl,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Contact Name (optional)', border: OutlineInputBorder()),
                   ),
                 ),
