@@ -108,9 +108,22 @@ class _OverviewTab extends StatelessWidget {
           employee.phoneNumber,
           onTap: employee.phoneNumber != null && employee.phoneNumber!.isNotEmpty
               ? () async {
-                  final uri = Uri.parse('tel:${employee.phoneNumber}');
-                  if (await canLaunchUrl(uri)) {
+                  await Clipboard.setData(ClipboardData(text: employee.phoneNumber!));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Phone number copied to clipboard')),
+                    );
+                  }
+                }
+              : null,
+          onIconPressed: employee.phoneNumber != null && employee.phoneNumber!.isNotEmpty
+              ? () async {
+                  final cleanPhone = employee.phoneNumber!.replaceAll(RegExp(r'[^\d+]'), '');
+                  final uri = Uri.parse('tel:$cleanPhone');
+                  try {
                     await launchUrl(uri);
+                  } catch (e) {
+                    debugPrint('Could not launch dialer: $e');
                   }
                 }
               : null,
@@ -121,6 +134,16 @@ class _OverviewTab extends StatelessWidget {
           icon: Icons.chat_bubble_outline,
           onTap: employee.whatsappNumber != null && employee.whatsappNumber!.isNotEmpty
               ? () async {
+                  await Clipboard.setData(ClipboardData(text: employee.whatsappNumber!));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('WhatsApp number copied to clipboard')),
+                    );
+                  }
+                }
+              : null,
+          onIconPressed: employee.whatsappNumber != null && employee.whatsappNumber!.isNotEmpty
+              ? () async {
                   var digits = employee.whatsappNumber!.replaceAll(RegExp(r'\D'), '');
                   if (digits.startsWith('03') && digits.length == 11) {
                     digits = '92${digits.substring(1)}';
@@ -128,16 +151,6 @@ class _OverviewTab extends StatelessWidget {
                   if (digits.startsWith('3') && digits.length == 10) {
                     digits = '92$digits';
                   }
-
-                  // 1. Always copy to clipboard first
-                  await Clipboard.setData(ClipboardData(text: employee.whatsappNumber!));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('WhatsApp number copied to clipboard')),
-                    );
-                  }
-
-                  // 2. Launch WhatsApp deep link directly
                   final uri = Uri.parse('https://wa.me/$digits');
                   try {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -175,9 +188,22 @@ class _OverviewTab extends StatelessWidget {
             employee.emergencyContactPhone,
             onTap: employee.emergencyContactPhone != null && employee.emergencyContactPhone!.isNotEmpty
                 ? () async {
-                    final uri = Uri.parse('tel:${employee.emergencyContactPhone}');
-                    if (await canLaunchUrl(uri)) {
+                    await Clipboard.setData(ClipboardData(text: employee.emergencyContactPhone!));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Emergency phone copied to clipboard')),
+                      );
+                    }
+                  }
+                : null,
+            onIconPressed: employee.emergencyContactPhone != null && employee.emergencyContactPhone!.isNotEmpty
+                ? () async {
+                    final cleanPhone = employee.emergencyContactPhone!.replaceAll(RegExp(r'[^\d+]'), '');
+                    final uri = Uri.parse('tel:$cleanPhone');
+                    try {
                       await launchUrl(uri);
+                    } catch (e) {
+                      debugPrint('Could not launch emergency dialer: $e');
                     }
                   }
                 : null,
@@ -193,7 +219,7 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, String? value, {VoidCallback? onTap, IconData? icon}) {
+  Widget _row(String label, String? value, {VoidCallback? onTap, VoidCallback? onIconPressed, IconData? icon}) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -214,11 +240,11 @@ class _OverviewTab extends StatelessWidget {
                   )
                 : Text(value),
           ),
-          if (onTap != null) ...[
+          if (onIconPressed != null) ...[
             const SizedBox(width: 8),
             IconButton(
               icon: Icon(icon ?? Icons.phone_outlined, size: 20, color: Colors.blue),
-              onPressed: onTap,
+              onPressed: onIconPressed,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
