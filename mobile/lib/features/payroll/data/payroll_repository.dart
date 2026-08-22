@@ -28,17 +28,11 @@ class PayrollRepository {
   /// All privileged payroll writes go directly to Firestore using client-side 
   /// transactions and batches (bypassing Cloud Functions to support the free Spark plan).
 
-  Future<void> generatePayroll(String monthKey) async {
+  Future<int> generatePayroll(String monthKey) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) throw Exception("Unauthenticated");
 
-    // 1. Check if payroll_months for monthKey already exists
-    final monthDoc = await _db.collection('payroll_months').doc(monthKey).get();
-    if (monthDoc.exists) {
-      return; // Already generated
-    }
-
-    // 2. Fetch active employees
+    // Fetch active employees
     final employeesSnap = await _db
         .collection('employees')
         .where('employmentStatus', isEqualTo: 'Active')
@@ -78,15 +72,19 @@ class PayrollRepository {
       createdCount++;
     }
 
-    // 3. Mark the month as generated
-    final monthDocRef = _db.collection('payroll_months').doc(monthKey);
-    batch.set(monthDocRef, {
-      'monthKey': monthKey,
-      'generatedAt': FieldValue.serverTimestamp(),
-      'generatedByUserId': uid,
-    });
+    if (createdCount > 0) {
+      // Mark the month as generated
+      final monthDocRef = _db.collection('payroll_months').doc(monthKey);
+      batch.set(monthDocRef, {
+        'monthKey': monthKey,
+        'generatedAt': FieldValue.serverTimestamp(),
+        'generatedByUserId': uid,
+      }, SetOptions(merge: true));
 
-    await batch.commit();
+      await batch.commit();
+    }
+
+    return createdCount;
   }
 
   Future<void> recordPayrollPayment({

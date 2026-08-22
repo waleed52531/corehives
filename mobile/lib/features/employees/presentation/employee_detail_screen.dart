@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
+import 'package:intl/intl.dart';
 import '../domain/employee_model.dart';
 import 'employee_providers.dart';
 
@@ -166,26 +167,177 @@ class _CompensationTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<EmployeeCompensation?>(
-      future: ref.read(employeeRepositoryProvider).compensationFor(employeeId),
+    return StreamBuilder<EmployeeCompensation?>(
+      stream: ref.watch(employeeRepositoryProvider).compensationStream(employeeId),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         final comp = snap.data;
         if (comp == null) {
-          return const Center(child: Text('No compensation record set.', style: TextStyle(color: Colors.grey)));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('No compensation record set.', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () => _showEditSalaryDialog(context, ref, null),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Salary'),
+                ),
+              ],
+            ),
+          );
         }
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
             const SectionHeader('Current Compensation'),
-            MoneyText(paisa: comp.baseSalaryPaisa, isCashIn: false, fontSize: 22),
-            const SizedBox(height: 8),
-            Text(comp.compensationType, style: const TextStyle(color: Colors.grey)),
-            if (comp.effectiveFrom != null) Text('Effective from ${comp.effectiveFrom}'),
-            if (comp.defaultPaymentMethod != null) Text('Default method: ${comp.defaultPaymentMethod}'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MoneyText(paisa: comp.baseSalaryPaisa, isCashIn: false, fontSize: 22),
+                    const SizedBox(height: 8),
+                    Text(comp.compensationType, style: const TextStyle(color: Colors.grey)),
+                    if (comp.effectiveFrom != null) Text('Effective from ${comp.effectiveFrom}'),
+                    if (comp.defaultPaymentMethod != null) Text('Default method: ${comp.defaultPaymentMethod}'),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Edit Salary',
+                  onPressed: () => _showEditSalaryDialog(context, ref, comp),
+                ),
+              ],
+            ),
           ],
+        );
+      },
+    );
+  }
+
+  void _showEditSalaryDialog(BuildContext context, WidgetRef ref, EmployeeCompensation? currentComp) {
+    final formKey = GlobalKey<FormState>();
+    final amountCtrl = TextEditingController(
+      text: currentComp != null ? (currentComp.baseSalaryPaisa / 100).toStringAsFixed(0) : '',
+    );
+    String compType = currentComp?.compensationType ?? 'Salary';
+    String payMethod = currentComp?.defaultPaymentMethod ?? 'bank';
+    DateTime effectiveDate = currentComp?.effectiveFrom != null
+        ? (DateTime.tryParse(currentComp!.effectiveFrom!) ?? DateTime.now())
+        : DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(currentComp == null ? 'Add Salary' : 'Edit Salary'),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: amountCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                        decoration: const InputDecoration(
+                          labelText: 'Monthly Salary (PKR)',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          final val = int.tryParse(v.trim());
+                          if (val == null || val <= 0) return 'Must be a positive number';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: compType,
+                        decoration: const InputDecoration(
+                          labelText: 'Compensation Type',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Salary', child: Text('Salary')),
+                          DropdownMenuItem(value: 'Contract', child: Text('Contract')),
+                          DropdownMenuItem(value: 'Hourly', child: Text('Hourly')),
+                          DropdownMenuItem(value: 'Commission', child: Text('Commission')),
+                        ],
+                        onChanged: (v) => setDialogState(() => compType = v!),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: payMethod,
+                        decoration: const InputDecoration(
+                          labelText: 'Default Payment Method',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'bank', child: Text('Bank')),
+                          DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                        ],
+                        onChanged: (v) => setDialogState(() => payMethod = v!),
+                      ),
+                      const SizedBox(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Effective From'),
+                        subtitle: Text(DateFormat('yyyy-MM-dd').format(effectiveDate)),
+                        trailing: const Icon(Icons.calendar_today, size: 18),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: effectiveDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => effectiveDate = picked);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      final amountVal = int.parse(amountCtrl.text.trim());
+                      final newComp = EmployeeCompensation(
+                        employeeId: employeeId,
+                        baseSalaryPaisa: amountVal * 100,
+                        currency: 'PKR',
+                        compensationType: compType,
+                        defaultPaymentMethod: payMethod,
+                        effectiveFrom: DateFormat('yyyy-MM-dd').format(effectiveDate),
+                      );
+
+                      await ref.read(employeeRepositoryProvider).saveCompensation(newComp);
+                      
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

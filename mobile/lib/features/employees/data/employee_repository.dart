@@ -53,4 +53,21 @@ class EmployeeRepository {
   String newDocId() {
     return _db.collection('employees').doc().id;
   }
+
+  Stream<EmployeeCompensation?> compensationStream(String employeeId) {
+    return _db.collection('employee_compensation').doc(employeeId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return EmployeeCompensation.fromMap(doc.id, doc.data()!);
+    });
+  }
+
+  Future<void> saveCompensation(EmployeeCompensation comp) async {
+    await _db.collection('employee_compensation').doc(comp.employeeId).set({
+      'baseSalaryPaisa': comp.baseSalaryPaisa,
+      'currency': comp.currency,
+      'compensationType': comp.compensationType,
+      'defaultPaymentMethod': comp.defaultPaymentMethod,
+      'effectiveFrom': comp.effectiveFrom,
+    }, SetOptions(merge: true));
+  }
 }

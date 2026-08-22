@@ -35,10 +35,13 @@ class PayrollScreen extends ConsumerWidget {
           ? FloatingActionButton.extended(
               onPressed: () async {
                 try {
-                  await ref.read(payrollRepositoryProvider).generatePayroll(monthKey);
+                  final count = await ref.read(payrollRepositoryProvider).generatePayroll(monthKey);
                   if (context.mounted) {
+                    final msg = count > 0
+                        ? 'Generated payroll entries for $count active employee(s).'
+                        : 'Payroll is already up to date for all active employees.';
                     ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text('Payroll generated')));
+                        .showSnackBar(SnackBar(content: Text(msg)));
                   }
                 } catch (e) {
                   if (context.mounted) {
