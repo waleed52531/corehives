@@ -169,6 +169,36 @@ async function main() {
   }
   console.log(`expense_subcategories: ${subCreated} created, ${subTotal - subCreated} already existed`);
 
+  const banks = [
+    { name: "Habib Bank Limited (HBL)" },
+    { name: "United Bank Limited (UBL)" },
+    { name: "Meezan Bank" },
+    { name: "MCB Bank" },
+    { name: "Allied Bank Limited (ABL)" },
+    { name: "Bank Alfalah" },
+    { name: "Bank Al Habib" },
+    { name: "National Bank of Pakistan (NBP)" },
+    { name: "Faysal Bank" },
+    { name: "Standard Chartered Pakistan" },
+    { name: "Askari Bank" },
+    { name: "JS Bank" },
+    { name: "Soneri Bank" },
+    { name: "Habib Metropolitan Bank" },
+    { name: "Bank of Punjab" },
+    { name: "BankIslami Pakistan" },
+    { name: "Dubai Islamic Bank Pakistan" },
+    { name: "Sindh Bank" },
+    { name: "Silkbank" },
+    { name: "Al Baraka Bank Pakistan" },
+    { name: "Khushhali Microfinance Bank" },
+    { name: "Mobilink Microfinance Bank" },
+    { name: "Easypaisa Bank" },
+    { name: "U Microfinance Bank" },
+    { name: "Other" }
+  ];
+
+  await seedCollection("banks", banks);
+
   console.log("Seed complete.");
 }
 

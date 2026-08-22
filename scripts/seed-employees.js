@@ -22,15 +22,15 @@ function slug(name) {
 }
 
 const EMPLOYEES_TO_SEED = [
-  { name: "Zain", salary: 220000, code: "CH-001" },
-  { name: "Hanzalah", salary: 220000, code: "CH-002" },
-  { name: "Ishtiaq", salary: 60000, code: "CH-003" },
-  { name: "Raja", salary: 35000, code: "CH-004" },
-  { name: "Taha", salary: 100000, code: "CH-005" },
-  { name: "Hamza", salary: 30000, code: "CH-006" },
-  { name: "IzzatUllah", salary: 65000, code: "CH-007" },
-  { name: "Areeba", salary: 80000, code: "CH-008" },
-  { name: "Simran", salary: 75000, code: "CH-009" }
+  { name: "Zain", salary: 220000, code: "CH-001", bankName: "Meezan Bank", bankAccountOrIban: "PK12MEZN0000123456789012" },
+  { name: "Hanzalah", salary: 220000, code: "CH-002", bankName: "Habib Bank Limited (HBL)", bankAccountOrIban: "PK34HABB0000987654321098" },
+  { name: "Ishtiaq", salary: 60000, code: "CH-003", bankName: "United Bank Limited (UBL)", bankAccountOrIban: "PK56UNIL0000456123789456" },
+  { name: "Raja", salary: 35000, code: "CH-004", bankName: "Easypaisa Bank", bankAccountOrIban: "03001234567" },
+  { name: "Taha", salary: 100000, code: "CH-005", bankName: "Bank Alfalah", bankAccountOrIban: "PK78ALFA0000321654987123" },
+  { name: "Hamza", salary: 30000, code: "CH-006", bankName: "Meezan Bank", bankAccountOrIban: "PK12MEZN0000654321098765" },
+  { name: "IzzatUllah", salary: 65000, code: "CH-007", bankName: "National Bank of Pakistan (NBP)", bankAccountOrIban: "PK90NAPB0000111222333444" },
+  { name: "Areeba", salary: 80000, code: "CH-008", bankName: "Standard Chartered Pakistan", bankAccountOrIban: "PK21SCBL0000555666777888" },
+  { name: "Simran", salary: 75000, code: "CH-009", bankName: "Askari Bank", bankAccountOrIban: "PK43ASKB0000999888777666" }
 ];
 
 async function main() {
@@ -53,12 +53,22 @@ async function main() {
         employmentStatus: "Active",
         joiningDate: "2026-01-01",
         workLocation: "Office",
+        bankName: emp.bankName,
+        bankAccountOrIban: emp.bankAccountOrIban,
         createdAt: now(),
         createdByUserId: SYSTEM_UID,
         updatedAt: now(),
         updatedByUserId: SYSTEM_UID
       });
       createdEmp++;
+    } else {
+      // Update existing records with bank details if missing
+      await empRef.set({
+        bankName: emp.bankName,
+        bankAccountOrIban: emp.bankAccountOrIban,
+        updatedAt: now(),
+        updatedByUserId: SYSTEM_UID
+      }, { merge: true });
     }
 
     const compSnap = await compRef.get();
@@ -76,7 +86,7 @@ async function main() {
     }
   }
 
-  console.log(`Employees: ${createdEmp} created, ${EMPLOYEES_TO_SEED.length - createdEmp} already existed`);
+  console.log(`Employees: ${createdEmp} created/updated, ${EMPLOYEES_TO_SEED.length - createdEmp} already existed`);
   console.log(`Compensations: ${createdComp} created, ${EMPLOYEES_TO_SEED.length - createdComp} already existed`);
   process.exit(0);
 }

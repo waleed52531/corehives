@@ -19,6 +19,8 @@ class Employee {
   final String? address;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
+  final String? bankName;
+  final String? bankAccountOrIban;
 
   Employee({
     required this.id,
@@ -41,6 +43,8 @@ class Employee {
     this.address,
     this.emergencyContactName,
     this.emergencyContactPhone,
+    this.bankName,
+    this.bankAccountOrIban,
   });
 
   factory Employee.fromMap(String id, Map<String, dynamic> m) => Employee(
@@ -64,6 +68,8 @@ class Employee {
         address: m['address'],
         emergencyContactName: m['emergencyContactName'],
         emergencyContactPhone: m['emergencyContactPhone'],
+        bankName: m['bankName'],
+        bankAccountOrIban: m['bankAccountOrIban'],
       );
 }
 

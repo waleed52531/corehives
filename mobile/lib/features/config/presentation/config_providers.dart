@@ -109,3 +109,15 @@ final activeRevenueSourcesProvider =
     return ref.watch(configRepositoryProvider).activeRevenueSources();
   },
 );
+
+final activeBanksProvider = StreamProvider.autoDispose<List<Bank>>((ref) {
+  final uid = ref.watch(authorizedUidProvider);
+
+  if (uid == null) {
+    return Stream.value(
+      const <Bank>[],
+    );
+  }
+
+  return ref.watch(configRepositoryProvider).activeBanks();
+});

@@ -12,6 +12,14 @@ class Department {
         active: m['active'] ?? false,
         order: m['order'],
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Department && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class ExpenseCategory {
@@ -178,4 +186,26 @@ class RevenueSource {
         active: m['active'] ?? false,
         order: m['order'],
       );
+}
+
+class Bank {
+  final String id;
+  final String name;
+  final bool active;
+
+  Bank({required this.id, required this.name, required this.active});
+
+  factory Bank.fromMap(String id, Map<String, dynamic> m) => Bank(
+        id: id,
+        name: m['name'] ?? '',
+        active: m['active'] ?? false,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Bank && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

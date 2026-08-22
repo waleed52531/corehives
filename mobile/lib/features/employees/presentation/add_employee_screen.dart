@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:collection/collection.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
 import '../../config/presentation/config_providers.dart';
@@ -9,7 +10,8 @@ import '../domain/employee_model.dart';
 import 'employee_providers.dart';
 
 class AddEmployeeScreen extends ConsumerStatefulWidget {
-  const AddEmployeeScreen({super.key});
+  final Employee? employeeToEdit;
+  const AddEmployeeScreen({super.key, this.employeeToEdit});
 
   @override
   ConsumerState<AddEmployeeScreen> createState() => _AddEmployeeScreenState();
@@ -28,6 +30,8 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
   final _addressCtrl = TextEditingController();
   final _emergencyNameCtrl = TextEditingController();
   final _emergencyPhoneCtrl = TextEditingController();
+  final _bankIbanCtrl = TextEditingController();
+  final _customBankNameCtrl = TextEditingController();
 
   Department? _department;
   String _employmentType = 'Full-time';
@@ -35,6 +39,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
   String _workLocation = 'On-site';
   String _shiftTiming = '12 PM to 9 PM';
   DateTime? _joiningDate;
+  String? _bankName;
   bool _saving = false;
 
   final _employmentTypes = ['Full-time', 'Part-time', 'Contractor', 'Intern'];
@@ -46,6 +51,42 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     '6 PM to 3 AM',
     '9 PM to 6 AM'
   ];
+
+
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.employeeToEdit != null) {
+      final emp = widget.employeeToEdit!;
+      _codeCtrl.text = emp.employeeCode;
+      _nameCtrl.text = emp.fullName;
+      _titleCtrl.text = emp.jobTitle;
+      _compEmailCtrl.text = emp.companyEmail ?? '';
+      _persEmailCtrl.text = emp.personalEmail ?? '';
+      _phoneCtrl.text = emp.phoneNumber ?? '';
+      _whatsappCtrl.text = emp.whatsappNumber ?? '';
+      _notesCtrl.text = emp.notes ?? '';
+      _addressCtrl.text = emp.address ?? '';
+      _emergencyNameCtrl.text = emp.emergencyContactName ?? '';
+      _emergencyPhoneCtrl.text = emp.emergencyContactPhone ?? '';
+      _employmentType = emp.employmentType;
+      _employmentStatus = emp.employmentStatus;
+      _workLocation = emp.workLocation ?? 'On-site';
+      _shiftTiming = emp.shiftTiming ?? '12 PM to 9 PM';
+      _joiningDate = emp.joiningDate != null ? DateTime.tryParse(emp.joiningDate!) : null;
+
+      if (emp.bankName != null) {
+        if (_defaultBankNames.contains(emp.bankName)) {
+          _bankName = emp.bankName;
+        } else {
+          _bankName = 'Other';
+          _customBankNameCtrl.text = emp.bankName!;
+        }
+      }
+      _bankIbanCtrl.text = emp.bankAccountOrIban ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -60,6 +101,8 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     _addressCtrl.dispose();
     _emergencyNameCtrl.dispose();
     _emergencyPhoneCtrl.dispose();
+    _bankIbanCtrl.dispose();
+    _customBankNameCtrl.dispose();
     super.dispose();
   }
 
@@ -76,7 +119,10 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     }
 
     final repo = ref.read(employeeRepositoryProvider);
-    final docId = repo.newDocId();
+    final docId = widget.employeeToEdit?.id ?? repo.newDocId();
+
+    final finalBankName = _bankName == 'Other' ? _customBankNameCtrl.text.trim() : _bankName;
+    final finalBankIban = _bankName != null ? _bankIbanCtrl.text.trim() : null;
 
     final employee = Employee(
       id: docId,
@@ -99,15 +145,27 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
       address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
       emergencyContactName: _emergencyNameCtrl.text.trim().isEmpty ? null : _emergencyNameCtrl.text.trim(),
       emergencyContactPhone: _emergencyPhoneCtrl.text.trim().isEmpty ? null : _emergencyPhoneCtrl.text.trim(),
+      bankName: finalBankName,
+      bankAccountOrIban: finalBankIban,
     );
 
     try {
-      await repo.create(employee);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Employee added successfully')),
-        );
-        context.pop();
+      if (widget.employeeToEdit != null) {
+        await repo.update(employee);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Employee updated successfully')),
+          );
+          context.pop();
+        }
+      } else {
+        await repo.create(employee);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Employee added successfully')),
+          );
+          context.pop();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -125,8 +183,8 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     final deptsAsync = ref.watch(activeDepartmentsProvider);
     final employees = ref.watch(allEmployeesProvider).value;
 
-    // Auto-generate employee code if empty
-    if (employees != null && _codeCtrl.text.isEmpty) {
+    // Auto-generate employee code if empty and not editing
+    if (employees != null && _codeCtrl.text.isEmpty && widget.employeeToEdit == null) {
       int maxNum = 0;
       for (final e in employees) {
         final code = e.employeeCode;
@@ -141,8 +199,10 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
       _codeCtrl.text = 'CH-${(maxNum + 1).toString().padLeft(3, '0')}';
     }
 
+    final isEditing = widget.employeeToEdit != null;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Employee')),
+      appBar: AppBar(title: Text(isEditing ? 'Edit Employee' : 'Add Employee')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -175,12 +235,21 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             ),
             const SizedBox(height: 12),
             deptsAsync.when(
-              data: (depts) => DropdownButtonFormField<Department>(
-                value: _department,
-                decoration: const InputDecoration(labelText: 'Department (optional)', border: OutlineInputBorder()),
-                items: depts.map((d) => DropdownMenuItem(value: d, child: Text(d.name))).toList(),
-                onChanged: (v) => setState(() => _department = v),
-              ),
+              data: (depts) {
+                if (_department == null && widget.employeeToEdit?.departmentId != null) {
+                  _department = depts.firstWhereOrNull((d) => d.id == widget.employeeToEdit!.departmentId);
+                }
+                final deptItems = List<Department>.from(depts);
+                if (_department != null && !deptItems.contains(_department)) {
+                  deptItems.add(_department!);
+                }
+                return DropdownButtonFormField<Department>(
+                  value: _department,
+                  decoration: const InputDecoration(labelText: 'Department (optional)', border: OutlineInputBorder()),
+                  items: deptItems.map((d) => DropdownMenuItem(value: d, child: Text(d.name))).toList(),
+                  onChanged: (v) => setState(() => _department = v),
+                );
+              },
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const Text('Could not load departments'),
             ),
@@ -188,20 +257,36 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _employmentType,
-                    decoration: const InputDecoration(labelText: 'Employment Type', border: OutlineInputBorder()),
-                    items: _employmentTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                    onChanged: (v) => setState(() => _employmentType = v!),
+                  child: Builder(
+                    builder: (context) {
+                      final items = List<String>.from(_employmentTypes);
+                      if (!items.contains(_employmentType)) {
+                        items.add(_employmentType);
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: _employmentType,
+                        decoration: const InputDecoration(labelText: 'Employment Type', border: OutlineInputBorder()),
+                        items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                        onChanged: (v) => setState(() => _employmentType = v!),
+                      );
+                    }
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _employmentStatus,
-                    decoration: const InputDecoration(labelText: 'Employment Status', border: OutlineInputBorder()),
-                    items: _employmentStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                    onChanged: (v) => setState(() => _employmentStatus = v!),
+                  child: Builder(
+                    builder: (context) {
+                      final items = List<String>.from(_employmentStatuses);
+                      if (!items.contains(_employmentStatus)) {
+                        items.add(_employmentStatus);
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: _employmentStatus,
+                        decoration: const InputDecoration(labelText: 'Employment Status', border: OutlineInputBorder()),
+                        items: items.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        onChanged: (v) => setState(() => _employmentStatus = v!),
+                      );
+                    }
                   ),
                 ),
               ],
@@ -243,6 +328,49 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
               controller: _addressCtrl,
               decoration: const InputDecoration(labelText: 'Home Address (optional)', border: OutlineInputBorder()),
             ),
+            const SectionHeader('Bank Account Details'),
+            ref.watch(activeBanksProvider).when(
+              data: (banks) {
+                final bankNames = banks.map((b) => b.name).toList();
+                if (_bankName != null && !bankNames.contains(_bankName)) {
+                  bankNames.add(_bankName!);
+                }
+                return DropdownButtonFormField<String>(
+                  value: _bankName,
+                  decoration: const InputDecoration(labelText: 'Select Bank', border: OutlineInputBorder()),
+                  items: bankNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
+                  onChanged: (v) => setState(() {
+                    _bankName = v;
+                  }),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => DropdownButtonFormField<String>(
+                value: _bankName,
+                decoration: const InputDecoration(labelText: 'Select Bank', border: OutlineInputBorder()),
+                items: _defaultBankNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
+                onChanged: (v) => setState(() {
+                  _bankName = v;
+                }),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_bankName == 'Other') ...[
+              TextFormField(
+                controller: _customBankNameCtrl,
+                decoration: const InputDecoration(labelText: 'Enter Bank Name', border: OutlineInputBorder()),
+                validator: (v) => _bankName == 'Other' && (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+            ],
+            TextFormField(
+              controller: _bankIbanCtrl,
+              decoration: const InputDecoration(labelText: 'Bank Account or IBAN Number', border: OutlineInputBorder()),
+              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 12),
             const SectionHeader('Emergency Contact'),
             Row(
               children: [
@@ -273,7 +401,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now(),
+                  initialDate: _joiningDate ?? DateTime.now(),
                   firstDate: DateTime(2020),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                 );
@@ -284,20 +412,36 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _workLocation,
-                    decoration: const InputDecoration(labelText: 'Work Location', border: OutlineInputBorder()),
-                    items: _workLocations.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-                    onChanged: (v) => setState(() => _workLocation = v!),
+                  child: Builder(
+                    builder: (context) {
+                      final items = List<String>.from(_workLocations);
+                      if (!items.contains(_workLocation)) {
+                        items.add(_workLocation);
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: _workLocation,
+                        decoration: const InputDecoration(labelText: 'Work Location', border: OutlineInputBorder()),
+                        items: items.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+                        onChanged: (v) => setState(() => _workLocation = v!),
+                      );
+                    }
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _shiftTiming,
-                    decoration: const InputDecoration(labelText: 'Shift Timing', border: OutlineInputBorder()),
-                    items: _shiftTimings.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                    onChanged: (v) => setState(() => _shiftTiming = v!),
+                  child: Builder(
+                    builder: (context) {
+                      final items = List<String>.from(_shiftTimings);
+                      if (!items.contains(_shiftTiming)) {
+                        items.add(_shiftTiming);
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: _shiftTiming,
+                        decoration: const InputDecoration(labelText: 'Shift Timing', border: OutlineInputBorder()),
+                        items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                        onChanged: (v) => setState(() => _shiftTiming = v!),
+                      );
+                    }
                   ),
                 ),
               ],
@@ -318,7 +462,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Add Employee'),
+                  : Text(isEditing ? 'Save Changes' : 'Add Employee'),
             ),
           ],
         ),
@@ -326,3 +470,31 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     );
   }
 }
+
+const _defaultBankNames = [
+  'Habib Bank Limited (HBL)',
+  'United Bank Limited (UBL)',
+  'Meezan Bank',
+  'MCB Bank',
+  'Allied Bank Limited (ABL)',
+  'Bank Alfalah',
+  'Bank Al Habib',
+  'National Bank of Pakistan (NBP)',
+  'Faysal Bank',
+  'Standard Chartered Pakistan',
+  'Askari Bank',
+  'JS Bank',
+  'Soneri Bank',
+  'Habib Metropolitan Bank',
+  'Bank of Punjab',
+  'BankIslami Pakistan',
+  'Dubai Islamic Bank Pakistan',
+  'Sindh Bank',
+  'Silkbank',
+  'Al Baraka Bank Pakistan',
+  'Khushhali Microfinance Bank',
+  'Mobilink Microfinance Bank',
+  'Easypaisa Bank',
+  'U Microfinance Bank',
+  'Other'
+];

@@ -16,6 +16,7 @@ import '../features/transactions/presentation/add_cash_in_screen.dart';
 import '../features/payroll/presentation/payroll_screen.dart';
 import '../features/payroll/presentation/payroll_entry_detail_screen.dart';
 
+import '../features/employees/domain/employee_model.dart';
 import '../features/employees/presentation/employee_directory_screen.dart';
 import '../features/employees/presentation/employee_detail_screen.dart';
 import '../features/employees/presentation/add_employee_screen.dart';
@@ -192,7 +193,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/add-employee',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (c, s) => const AddEmployeeScreen(),
+        builder: (c, s) {
+          final extra = s.extra as Employee?;
+          return AddEmployeeScreen(employeeToEdit: extra);
+        },
       ),
       GoRoute(
         path: '/platform-ids',

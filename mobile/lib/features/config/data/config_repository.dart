@@ -109,4 +109,11 @@ class ConfigRepository {
       'active': false,
     });
   }
+
+  Stream<List<Bank>> activeBanks() => _db
+      .collection('banks')
+      .where('active', isEqualTo: true)
+      .orderBy('name')
+      .snapshots()
+      .map((s) => s.docs.map((d) => Bank.fromMap(d.id, d.data())).toList());
 }

@@ -46,8 +46,36 @@ class EmployeeRepository {
       'address': employee.address,
       'emergencyContactName': employee.emergencyContactName,
       'emergencyContactPhone': employee.emergencyContactPhone,
+      'bankName': employee.bankName,
+      'bankAccountOrIban': employee.bankAccountOrIban,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> update(Employee employee) async {
+    await _db.collection('employees').doc(employee.id).set({
+      'employeeCode': employee.employeeCode,
+      'fullName': employee.fullName,
+      'jobTitle': employee.jobTitle,
+      'departmentId': employee.departmentId,
+      'employmentType': employee.employmentType,
+      'employmentStatus': employee.employmentStatus,
+      'companyEmail': employee.companyEmail,
+      'personalEmail': employee.personalEmail,
+      'phoneNumber': employee.phoneNumber,
+      'whatsappNumber': employee.whatsappNumber,
+      'joiningDate': employee.joiningDate,
+      'reportingManagerEmployeeId': employee.reportingManagerEmployeeId,
+      'workLocation': employee.workLocation,
+      'shiftTiming': employee.shiftTiming,
+      'notes': employee.notes,
+      'address': employee.address,
+      'emergencyContactName': employee.emergencyContactName,
+      'emergencyContactPhone': employee.emergencyContactPhone,
+      'bankName': employee.bankName,
+      'bankAccountOrIban': employee.bankAccountOrIban,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   String newDocId() {

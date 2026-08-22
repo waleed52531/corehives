@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:collection/collection.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
@@ -70,28 +73,156 @@ class _OverviewTab extends StatelessWidget {
         Center(child: Text(employee.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
         Center(child: Text(employee.jobTitle, style: const TextStyle(color: Colors.grey))),
         const SectionHeader('Contact'),
-        _row('Company Email', employee.companyEmail),
-        _row('Personal Email', employee.personalEmail),
-        _row('Phone', employee.phoneNumber),
-        _row('WhatsApp', employee.whatsappNumber),
+        _row(
+          'Company Email',
+          employee.companyEmail,
+          icon: Icons.copy_outlined,
+          onTap: employee.companyEmail != null && employee.companyEmail!.isNotEmpty
+              ? () async {
+                  await Clipboard.setData(ClipboardData(text: employee.companyEmail!));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Company Email copied to clipboard')),
+                    );
+                  }
+                }
+              : null,
+        ),
+        _row(
+          'Personal Email',
+          employee.personalEmail,
+          icon: Icons.copy_outlined,
+          onTap: employee.personalEmail != null && employee.personalEmail!.isNotEmpty
+              ? () async {
+                  await Clipboard.setData(ClipboardData(text: employee.personalEmail!));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Personal Email copied to clipboard')),
+                    );
+                  }
+                }
+              : null,
+        ),
+        _row(
+          'Phone',
+          employee.phoneNumber,
+          onTap: employee.phoneNumber != null && employee.phoneNumber!.isNotEmpty
+              ? () async {
+                  final uri = Uri.parse('tel:${employee.phoneNumber}');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  }
+                }
+              : null,
+        ),
+        _row(
+          'WhatsApp',
+          employee.whatsappNumber,
+          icon: Icons.chat_bubble_outline,
+          onTap: employee.whatsappNumber != null && employee.whatsappNumber!.isNotEmpty
+              ? () async {
+                  var digits = employee.whatsappNumber!.replaceAll(RegExp(r'\D'), '');
+                  if (digits.startsWith('03') && digits.length == 11) {
+                    digits = '92${digits.substring(1)}';
+                  }
+                  if (digits.startsWith('3') && digits.length == 10) {
+                    digits = '92$digits';
+                  }
+
+                  // 1. Always copy to clipboard first
+                  await Clipboard.setData(ClipboardData(text: employee.whatsappNumber!));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('WhatsApp number copied to clipboard')),
+                    );
+                  }
+
+                  // 2. Launch WhatsApp deep link directly
+                  final uri = Uri.parse('https://wa.me/$digits');
+                  try {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } catch (e) {
+                    debugPrint('Could not launch WhatsApp URL: $e');
+                  }
+                }
+              : null,
+        ),
         _row('Address', employee.address),
+        if (employee.bankName != null || employee.bankAccountOrIban != null) ...[
+          const SectionHeader('Bank Account'),
+          _row('Bank Name', employee.bankName),
+          _row(
+            'Account / IBAN',
+            employee.bankAccountOrIban,
+            icon: Icons.copy_outlined,
+            onTap: employee.bankAccountOrIban != null && employee.bankAccountOrIban!.isNotEmpty
+                ? () async {
+                    await Clipboard.setData(ClipboardData(text: employee.bankAccountOrIban!));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Account / IBAN copied to clipboard')),
+                      );
+                    }
+                  }
+                : null,
+          ),
+        ],
         if (employee.emergencyContactName != null || employee.emergencyContactPhone != null) ...[
           const SectionHeader('Emergency Contact'),
           _row('Name', employee.emergencyContactName),
-          _row('Phone', employee.emergencyContactPhone),
+          _row(
+            'Phone',
+            employee.emergencyContactPhone,
+            onTap: employee.emergencyContactPhone != null && employee.emergencyContactPhone!.isNotEmpty
+                ? () async {
+                    final uri = Uri.parse('tel:${employee.emergencyContactPhone}');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri);
+                    }
+                  }
+                : null,
+          ),
         ],
+        const SizedBox(height: 24),
+        OutlinedButton.icon(
+          onPressed: () => context.push('/add-employee', extra: employee),
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Edit Employee Details'),
+        ),
       ],
     );
   }
 
-  Widget _row(String label, String? value) {
+  Widget _row(String label, String? value, {VoidCallback? onTap, IconData? icon}) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           SizedBox(width: 140, child: Text(label, style: const TextStyle(color: Colors.grey))),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: onTap != null
+                ? InkWell(
+                    onTap: onTap,
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  )
+                : Text(value),
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(icon ?? Icons.phone_outlined, size: 20, color: Colors.blue),
+              onPressed: onTap,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
         ],
       ),
     );
