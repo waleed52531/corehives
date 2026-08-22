@@ -180,9 +180,10 @@ class _OverviewTab extends StatelessWidget {
                 : null,
           ),
         ],
-        if (employee.emergencyContactName != null || employee.emergencyContactPhone != null) ...[
+        if (employee.emergencyContactName != null || employee.emergencyContactPhone != null || employee.emergencyContactRelation != null) ...[
           const SectionHeader('Emergency Contact'),
           _row('Name', employee.emergencyContactName),
+          _row('Relationship', employee.emergencyContactRelation),
           _row(
             'Phone',
             employee.emergencyContactPhone,

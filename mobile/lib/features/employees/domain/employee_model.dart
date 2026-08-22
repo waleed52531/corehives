@@ -19,6 +19,7 @@ class Employee {
   final String? address;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
+  final String? emergencyContactRelation;
   final String? bankName;
   final String? bankAccountOrIban;
 
@@ -43,6 +44,7 @@ class Employee {
     this.address,
     this.emergencyContactName,
     this.emergencyContactPhone,
+    this.emergencyContactRelation,
     this.bankName,
     this.bankAccountOrIban,
   });
@@ -68,6 +70,7 @@ class Employee {
         address: m['address'],
         emergencyContactName: m['emergencyContactName'],
         emergencyContactPhone: m['emergencyContactPhone'],
+        emergencyContactRelation: m['emergencyContactRelation'],
         bankName: m['bankName'],
         bankAccountOrIban: m['bankAccountOrIban'],
       );

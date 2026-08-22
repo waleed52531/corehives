@@ -40,6 +40,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
   String _shiftTiming = '12 PM to 9 PM';
   DateTime? _joiningDate;
   String? _bankName;
+  String? _emergencyRelation;
   bool _saving = false;
 
   final _employmentTypes = ['Full-time', 'Part-time', 'Contractor', 'Intern'];
@@ -50,6 +51,15 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     '3 PM to 12 AM',
     '6 PM to 3 AM',
     '9 PM to 6 AM'
+  ];
+  final _emergencyRelations = [
+    'Spouse',
+    'Parent',
+    'Child',
+    'Sibling',
+    'Friend',
+    'Colleague',
+    'Other'
   ];
 
 
@@ -75,6 +85,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
       _workLocation = emp.workLocation ?? 'On-site';
       _shiftTiming = emp.shiftTiming ?? '12 PM to 9 PM';
       _joiningDate = emp.joiningDate != null ? DateTime.tryParse(emp.joiningDate!) : null;
+      _emergencyRelation = emp.emergencyContactRelation;
 
       if (emp.bankName != null) {
         if (_defaultBankNames.contains(emp.bankName)) {
@@ -121,12 +132,28 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     final repo = ref.read(employeeRepositoryProvider);
     final docId = widget.employeeToEdit?.id ?? repo.newDocId();
 
+    // Check for duplicate employee code
+    final code = _codeCtrl.text.trim();
+    final employees = ref.read(allEmployeesProvider).value;
+    if (employees != null) {
+      final isDuplicate = employees.any((e) =>
+          e.employeeCode.toLowerCase() == code.toLowerCase() &&
+          e.id != docId);
+      if (isDuplicate) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Employee Code "$code" is already in use.')),
+        );
+        return;
+      }
+    }
+
     final finalBankName = _bankName == 'Other' ? _customBankNameCtrl.text.trim() : _bankName;
     final finalBankIban = _bankName != null ? _bankIbanCtrl.text.trim() : null;
 
     final employee = Employee(
       id: docId,
-      employeeCode: _codeCtrl.text.trim(),
+      employeeCode: code,
       fullName: _nameCtrl.text.trim(),
       jobTitle: _titleCtrl.text.trim(),
       departmentId: _department?.id,
@@ -145,6 +172,7 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
       address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
       emergencyContactName: _emergencyNameCtrl.text.trim().isEmpty ? null : _emergencyNameCtrl.text.trim(),
       emergencyContactPhone: _emergencyPhoneCtrl.text.trim().isEmpty ? null : _emergencyPhoneCtrl.text.trim(),
+      emergencyContactRelation: _emergencyRelation,
       bankName: finalBankName,
       bankAccountOrIban: finalBankIban,
     );
@@ -392,6 +420,22 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final items = List<String>.from(_emergencyRelations);
+                if (_emergencyRelation != null && !items.contains(_emergencyRelation)) {
+                  items.add(_emergencyRelation!);
+                }
+                return DropdownButtonFormField<String>(
+                  value: _emergencyRelation,
+                  decoration: const InputDecoration(labelText: 'Relationship (optional)', border: OutlineInputBorder()),
+                  items: items.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                  onChanged: (v) => setState(() => _emergencyRelation = v),
+                  isExpanded: true,
+                );
+              }
             ),
             const SectionHeader('Deployment Details'),
             ListTile(
