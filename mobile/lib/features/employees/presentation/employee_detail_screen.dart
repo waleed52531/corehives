@@ -262,9 +262,6 @@ class _EmploymentTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentAppUserProvider).value;
-    final canManage = user != null && user.can((p) => p.manageEmployees);
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -273,25 +270,6 @@ class _EmploymentTab extends ConsumerWidget {
         _row(
           'Employment Status',
           employee.employmentStatus,
-          trailing: canManage
-              ? SizedBox(
-                  height: 32,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      side: BorderSide(color: employee.employmentStatus == 'Active' ? Colors.red : Colors.green),
-                    ),
-                    onPressed: () async {
-                      final newStatus = employee.employmentStatus == 'Active' ? 'Inactive' : 'Active';
-                      await ref.read(employeeRepositoryProvider).updateEmploymentStatus(employee.id, newStatus);
-                    },
-                    child: Text(
-                      employee.employmentStatus == 'Active' ? 'Mark Inactive' : 'Mark Active',
-                      style: TextStyle(color: employee.employmentStatus == 'Active' ? Colors.red : Colors.green, fontSize: 12),
-                    ),
-                  ),
-                )
-              : null,
         ),
         _row('Joining Date', employee.joiningDate),
         _row('Work Location', employee.workLocation),

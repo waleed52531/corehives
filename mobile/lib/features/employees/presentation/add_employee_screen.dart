@@ -284,42 +284,19 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
               error: (_, __) => const Text('Could not load departments'),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final items = List<String>.from(_employmentTypes);
-                      if (!items.contains(_employmentType)) {
-                        items.add(_employmentType);
-                      }
-                      return DropdownButtonFormField<String>(
-                        value: _employmentType,
-                        decoration: const InputDecoration(labelText: 'Employment Type', border: OutlineInputBorder()),
-                        items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                        onChanged: (v) => setState(() => _employmentType = v!),
-                      );
-                    }
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final items = List<String>.from(_employmentStatuses);
-                      if (!items.contains(_employmentStatus)) {
-                        items.add(_employmentStatus);
-                      }
-                      return DropdownButtonFormField<String>(
-                        value: _employmentStatus,
-                        decoration: const InputDecoration(labelText: 'Employment Status', border: OutlineInputBorder()),
-                        items: items.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                        onChanged: (v) => setState(() => _employmentStatus = v!),
-                      );
-                    }
-                  ),
-                ),
-              ],
+            Builder(
+              builder: (context) {
+                final items = List<String>.from(_employmentTypes);
+                if (!items.contains(_employmentType)) {
+                  items.add(_employmentType);
+                }
+                return DropdownButtonFormField<String>(
+                  value: _employmentType,
+                  decoration: const InputDecoration(labelText: 'Employment Type', border: OutlineInputBorder()),
+                  items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (v) => setState(() => _employmentType = v!),
+                );
+              }
             ),
             const SectionHeader('Contact Info'),
             TextFormField(
@@ -494,10 +471,19 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _notesCtrl,
-              decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
-              maxLines: 2,
+            Builder(
+              builder: (context) {
+                final items = List<String>.from(_employmentStatuses);
+                if (!items.contains(_employmentStatus)) {
+                  items.add(_employmentStatus);
+                }
+                return DropdownButtonFormField<String>(
+                  value: _employmentStatus,
+                  decoration: const InputDecoration(labelText: 'Employment Status', border: OutlineInputBorder()),
+                  items: items.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (v) => setState(() => _employmentStatus = v!),
+                );
+              }
             ),
             const SizedBox(height: 24),
             FilledButton(
