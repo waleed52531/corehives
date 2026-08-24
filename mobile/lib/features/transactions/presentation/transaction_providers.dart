@@ -74,8 +74,8 @@ final monthlyBalancesProvider = Provider.family<AsyncValue<MonthlyBalances>, Str
     loading: () => const AsyncValue.loading(),
     error: (e, st) => AsyncValue.error(e, st),
     data: (list) {
-      // Base backup: August 10, 2026 -> PKR 2,398,060 = 239,806,000 paisa
-      const baseBalancePaisa = 239806000;
+      // Base backup: August 10, 2026 -> PKR 2,091,581 = 209,158,100 paisa
+      const baseBalancePaisa = 209158100;
 
       final sorted = List<Transaction>.from(list)
         ..sort((a, b) => a.transactionDateKey.compareTo(b.transactionDateKey));
