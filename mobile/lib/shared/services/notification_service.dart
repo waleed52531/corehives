@@ -69,7 +69,10 @@ class NotificationService {
   static Future<String?> getDeviceToken() async {
     try {
       return await _fcm.getToken();
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        print('FCM Error: Failed to get device token: $e');
+      }
       return null;
     }
   }
