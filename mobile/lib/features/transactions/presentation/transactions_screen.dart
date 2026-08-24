@@ -17,6 +17,7 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   _TypeFilter _typeFilter = _TypeFilter.all;
   String _search = '';
+  DateTimeRange? _selectedRange;
 
   @override
   Widget build(BuildContext context) {
@@ -42,19 +43,46 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   onChanged: (v) => setState(() => _search = v.toLowerCase()),
                 ),
                 const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SegmentedButton<_TypeFilter>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: _TypeFilter.all, label: Text('All')),
-                      ButtonSegment(value: _TypeFilter.expense, label: Text('Expense')),
-                      ButtonSegment(value: _TypeFilter.cashIn, label: Text('Cash In')),
-                      ButtonSegment(value: _TypeFilter.mine, label: Text('My Entries')),
-                    ],
-                    selected: {_typeFilter},
-                    onSelectionChanged: (s) => setState(() => _typeFilter = s.first),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SegmentedButton<_TypeFilter>(
+                          showSelectedIcon: false,
+                          segments: const [
+                            ButtonSegment(value: _TypeFilter.all, label: Text('All')),
+                            ButtonSegment(value: _TypeFilter.expense, label: Text('Expense')),
+                            ButtonSegment(value: _TypeFilter.cashIn, label: Text('Cash In')),
+                            ButtonSegment(value: _TypeFilter.mine, label: Text('My Entries')),
+                          ],
+                          selected: {_typeFilter},
+                          onSelectionChanged: (s) => setState(() => _typeFilter = s.first),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InputChip(
+                      label: Text(_selectedRange == null
+                          ? 'Range'
+                          : '${_selectedRange!.start.month}/${_selectedRange!.start.day} - ${_selectedRange!.end.month}/${_selectedRange!.end.day}'),
+                      avatar: _selectedRange == null ? const Icon(Icons.calendar_today, size: 16) : null,
+                      onDeleted: _selectedRange != null
+                          ? () => setState(() => _selectedRange = null)
+                          : null,
+                      onPressed: () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          initialDateRange: _selectedRange,
+                          firstDate: DateTime(2024),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() => _selectedRange = picked);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -68,6 +96,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   if (_typeFilter == _TypeFilter.expense && t.type != TxType.expense) return false;
                   if (_typeFilter == _TypeFilter.cashIn && t.type != TxType.cashIn) return false;
                   if (_typeFilter == _TypeFilter.mine && t.createdByUserId != user?.uid) return false;
+                  if (_selectedRange != null) {
+                    final txDate = DateTime.tryParse(t.transactionDateKey);
+                    if (txDate == null) return false;
+                    final start = DateTime(_selectedRange!.start.year, _selectedRange!.start.month, _selectedRange!.start.day);
+                    final end = DateTime(_selectedRange!.end.year, _selectedRange!.end.month, _selectedRange!.end.day, 23, 59, 59);
+                    if (txDate.isBefore(start) || txDate.isAfter(end)) return false;
+                  }
                   if (_search.isEmpty) return true;
                   final haystack = [
                     t.description, t.notes, t.categoryName, t.subcategoryName,
