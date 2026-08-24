@@ -47,7 +47,7 @@ function monthKeyFromDateKey(dateKey: string): string {
   const month = parseInt(parts[1], 10);
   const day = parseInt(parts[2], 10);
 
-  if (day >= 10) {
+  if (day >= 11) {
     let nextMonth = month + 1;
     let nextYear = year;
     if (nextMonth > 12) {

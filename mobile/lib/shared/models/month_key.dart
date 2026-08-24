@@ -3,7 +3,7 @@
 /// never from device UTC instant, to keep monthly reports stable.
 class MonthKey {
   static String fromDate(DateTime d) {
-    if (d.day >= 10) {
+    if (d.day >= 11) {
       final nextMonth = DateTime(d.year, d.month + 1, 1);
       return '${nextMonth.year.toString().padLeft(4, '0')}-${nextMonth.month.toString().padLeft(2, '0')}';
     } else {
