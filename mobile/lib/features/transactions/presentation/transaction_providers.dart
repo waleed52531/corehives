@@ -131,7 +131,7 @@ final monthlyBalancesProvider = Provider.family<AsyncValue<MonthlyBalances>, Str
   );
 });
 
-final pendingUserWithdrawalsProvider = StreamProvider<List<Transaction>>((ref) {
+final pendingUserWithdrawalsProvider = StreamProvider.autoDispose<List<Transaction>>((ref) {
   final user = ref.watch(currentAppUserProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -164,7 +164,7 @@ final pendingUserWithdrawalsProvider = StreamProvider<List<Transaction>>((ref) {
   });
 });
 
-final pendingReimbursementsProvider = StreamProvider<List<Transaction>>((ref) {
+final pendingReimbursementsProvider = StreamProvider.autoDispose<List<Transaction>>((ref) {
   final repo = ref.watch(transactionRepositoryProvider);
   return repo.pendingReimbursements();
 });
