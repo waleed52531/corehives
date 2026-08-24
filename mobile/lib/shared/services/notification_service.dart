@@ -1,7 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:io';
+import 'package:googleapis_auth/auth_io.dart';
 import 'dart:convert';
 
 @pragma('vm:entry-point')
@@ -74,7 +74,7 @@ class NotificationService {
     }
   }
 
-  /// Sends a pending withdrawal push notification directly to the resolved target owner.
+  /// Sends a pending withdrawal push notification directly to the resolved target owner using FCM HTTP v1.
   static Future<void> sendPendingWithdrawalNotification({
     required String upworkAccountId,
     required String upworkAccountName,
@@ -82,15 +82,15 @@ class NotificationService {
     required String transactionId,
   }) async {
     try {
-      // 1. Fetch FCM Server Key from app_settings/fcm
+      // 1. Fetch FCM Service Account JSON from app_settings/fcm
       final fcmSettingsDoc = await _db.collection('app_settings').doc('fcm').get();
       if (!fcmSettingsDoc.exists) {
         print('FCM: Server settings document app_settings/fcm not found.');
         return;
       }
-      final serverKey = fcmSettingsDoc.data()?['serverKey'] as String?;
-      if (serverKey == null || serverKey.isEmpty) {
-        print('FCM: serverKey field is empty in app_settings/fcm document.');
+      final saJson = fcmSettingsDoc.data()?['serviceAccountJson'] as String?;
+      if (saJson == null || saJson.isEmpty) {
+        print('FCM: serviceAccountJson field is empty in app_settings/fcm document.');
         return;
       }
 
@@ -139,37 +139,48 @@ class NotificationService {
         return;
       }
 
-      // 5. Send FCM legacy HTTP post request
-      final amountFormatted = amount.toStringAsFixed(2);
-      final payload = {
-        'registration_ids': uniqueTokens,
-        'notification': {
-          'title': 'Action Required: Pending Withdrawal',
-          'body': 'A new pending cash-in of PKR $amountFormatted has been added to your platform account.',
-          'sound': 'default',
-        },
-        'data': {
-          'transactionId': transactionId,
-          'type': 'pending_withdrawal',
-          'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-        },
-      };
+      // 5. Initialize Google APIs Client with Service Account credentials
+      final credentialsMap = jsonDecode(saJson) as Map<String, dynamic>;
+      final projectId = credentialsMap['project_id'] as String;
 
-      final client = HttpClient();
-      final request = await client.postUrl(Uri.parse('https://fcm.googleapis.com/fcm/send'));
-      request.headers.contentType = ContentType.json;
-      request.headers.set('Authorization', 'key=$serverKey');
-      request.write(jsonEncode(payload));
-      
-      final response = await request.close();
-      if (response.statusCode == 200) {
-        print('FCM: Direct push notifications dispatched successfully to $ownerName (${uniqueTokens.length} devices).');
-      } else {
-        final responseBody = await response.transform(utf8.decoder).join();
-        print('FCM: Direct push dispatch failed (Status: ${response.statusCode}), Body: $responseBody');
+      final accountCredentials = ServiceAccountCredentials.fromJson(saJson);
+      final scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
+      final client = await clientViaServiceAccount(accountCredentials, scopes);
+
+      // 6. Send FCM HTTP v1 request for each token
+      final amountFormatted = amount.toStringAsFixed(2);
+
+      for (final token in uniqueTokens) {
+        final payload = {
+          'message': {
+            'token': token,
+            'notification': {
+              'title': 'Action Required: Pending Withdrawal',
+              'body': 'A new pending cash-in of PKR $amountFormatted has been added to your platform account.',
+            },
+            'data': {
+              'transactionId': transactionId,
+              'type': 'pending_withdrawal',
+              'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+            },
+          }
+        };
+
+        final response = await client.post(
+          Uri.parse('https://fcm.googleapis.com/v1/projects/$projectId/messages:send'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        );
+
+        if (response.statusCode == 200) {
+          print('FCM: Direct push notification successfully sent to device.');
+        } else {
+          print('FCM: Send failed (Status: ${response.statusCode}), Body: ${response.body}');
+        }
       }
+      client.close();
     } catch (e) {
-      print('FCM: Error dispatching direct client notification: $e');
+      print('FCM: Error dispatching direct v1 client notification: $e');
     }
   }
 }
