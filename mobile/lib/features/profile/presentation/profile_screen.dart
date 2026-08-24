@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import '../../../shared/providers/auth_providers.dart';
+import '../../../shared/services/notification_service.dart';
 import '../../transactions/presentation/transaction_providers.dart';
 import '../../config/presentation/config_providers.dart';
 
@@ -83,6 +85,29 @@ class ProfileScreen extends ConsumerWidget {
                 subtitle: const Text('Manage Upwork, Fiverr & Freelancer IDs'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/platform-ids'),
+              ),
+              FutureBuilder<String?>(
+                future: NotificationService.getDeviceToken(),
+                builder: (context, snapshot) {
+                  final token = snapshot.data;
+                  if (token == null) return const SizedBox.shrink();
+                  return ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined),
+                    title: const Text('FCM Push Token'),
+                    subtitle: Text(
+                      token,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.copy_outlined),
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: token));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('FCM Token copied to clipboard')),
+                      );
+                    },
+                  );
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),

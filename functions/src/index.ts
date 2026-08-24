@@ -1,6 +1,8 @@
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
 initializeApp();
 const db = getFirestore();
@@ -355,3 +357,85 @@ export const updateEmployeeCompensation = onCall(async (req) => {
 
   return { status: "updated", employeeId };
 });
+
+/* ------------------------------------------------------------------ */
+/* onTransactionCreated - triggers FCM push notification on new       */
+/* pending cash_in transaction creation                               */
+/* ------------------------------------------------------------------ */
+export const onTransactionCreated = onDocumentCreated("transactions/{txId}", async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) return;
+  const tx = snapshot.data();
+
+  // Only trigger on new pending cash-in transactions
+  if (tx.type !== "cash_in" || tx.status !== "pending" || tx.deletedAt) {
+    return;
+  }
+
+  const upworkAccountId = tx.upworkAccountId;
+  if (!upworkAccountId) return;
+
+  // 1. Resolve owner name from the Upwork account
+  const accSnap = await db.collection("upwork_accounts").doc(upworkAccountId).get();
+  let ownerName = accSnap.exists ? (accSnap.data()?.ownerName || "") : "";
+
+  // If ownerName is not set, derive from account name mapping
+  if (!ownerName) {
+    const accName = (tx.upworkAccountName || "").toLowerCase();
+    if (accName.includes("alina")) ownerName = "Ishtiaq";
+    else if (accName.includes("abiha") || accName.includes("zain")) ownerName = "Zain";
+    else if (accName.includes("hanzalah")) ownerName = "Hanzalah";
+  }
+
+  if (!ownerName) return;
+
+  // 2. Query target users matching the owner name
+  const usersSnap = await db.collection("users").get();
+  const targetUsers = usersSnap.docs.filter((doc) => {
+    const data = doc.data();
+    const nameLower = (data.name || "").toLowerCase();
+    const ownerLower = ownerName.toLowerCase();
+    return nameLower.includes(ownerLower) || ownerLower.includes(nameLower);
+  });
+
+  // 3. Gather all FCM tokens
+  const tokens: string[] = [];
+  for (const userDoc of targetUsers) {
+    const data = userDoc.data();
+    if (Array.isArray(data.fcmTokens)) {
+      tokens.push(...data.fcmTokens);
+    }
+  }
+
+  const uniqueTokens = Array.from(new Set(tokens)).filter(Boolean);
+  if (uniqueTokens.length === 0) {
+    console.log(`No tokens found for owner: ${ownerName}`);
+    return;
+  }
+
+  // 4. Send multicast push notification
+  const amount = (tx.amountPaisa / 100).toLocaleString("en-US", { minimumFractionDigits: 2 });
+  const payload = {
+    notification: {
+      title: "Action Required: Pending Withdrawal",
+      body: `A new pending cash-in of PKR ${amount} has been added to your platform account.`,
+    },
+    data: {
+      transactionId: snapshot.id,
+      type: "pending_withdrawal",
+    },
+  };
+
+  try {
+    const messaging = getMessaging();
+    const response = await messaging.sendEachForMulticast({
+      tokens: uniqueTokens,
+      notification: payload.notification,
+      data: payload.data,
+    });
+    console.log(`FCM: Sent ${response.successCount} notifications successfully; failed: ${response.failureCount}`);
+  } catch (error) {
+    console.error("Error sending push notifications:", error);
+  }
+});
+

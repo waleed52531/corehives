@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/providers/auth_providers.dart';
+import '../../../shared/services/notification_service.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/receipt_picker.dart';
 import '../../../shared/models/month_key.dart';
@@ -130,6 +131,10 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
     );
 
     try {
+      final isPendingWithdrawal = _status.toLowerCase() == 'pending' &&
+          (_sourceType == 'Upwork' || _sourceType == 'Fiverr') &&
+          _upworkAccount != null;
+
       if (widget.editId != null) {
         await repo.update(docId, {
           'sourceType': _sourceType,
@@ -150,8 +155,24 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
           'updatedByUserId': user.uid,
           'updatedByName': user.name,
         });
+        if (isPendingWithdrawal) {
+          NotificationService.sendPendingWithdrawalNotification(
+            upworkAccountId: _upworkAccount!.id,
+            upworkAccountName: _upworkAccount!.name,
+            amount: amountPaisa / 100,
+            transactionId: docId,
+          );
+        }
       } else {
         await repo.create(tx);
+        if (isPendingWithdrawal) {
+          NotificationService.sendPendingWithdrawalNotification(
+            upworkAccountId: _upworkAccount!.id,
+            upworkAccountName: _upworkAccount!.name,
+            amount: amountPaisa / 100,
+            transactionId: docId,
+          );
+        }
       }
 
       if (_receiptFile != null) {
