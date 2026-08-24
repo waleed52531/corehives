@@ -70,6 +70,15 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             _upworkAccount = UpworkAccount(id: tx.upworkAccountId!, name: tx.upworkAccountName!, platform: _sourceType.toLowerCase(), active: true);
           }
         }
+
+        if (tx.projectId != null) {
+          final projects = ref.read(activeProjectsProvider).value ?? [];
+          try {
+            _project = projects.firstWhere((p) => p.id == tx.projectId);
+          } catch (_) {
+            _project = Project(id: tx.projectId!, name: tx.projectName!, type: ProjectType.other, active: true);
+          }
+        }
       });
     }
   }

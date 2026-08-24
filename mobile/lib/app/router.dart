@@ -151,8 +151,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Full-screen routes pushed on top of the shell (not part of bottom nav).
-      GoRoute(path: '/add-expense', parentNavigatorKey: _rootNavigatorKey, builder: (c, s) => const AddExpenseScreen()),
-      GoRoute(path: '/add-cash-in', parentNavigatorKey: _rootNavigatorKey, builder: (c, s) => const AddCashInScreen()),
+      GoRoute(
+        path: '/add-expense',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => AddExpenseScreen(editId: s.uri.queryParameters['editId']),
+      ),
+      GoRoute(
+        path: '/add-cash-in',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => AddCashInScreen(editId: s.uri.queryParameters['editId']),
+      ),
       GoRoute(
         path: '/transactions/:id',
         parentNavigatorKey: _rootNavigatorKey,
