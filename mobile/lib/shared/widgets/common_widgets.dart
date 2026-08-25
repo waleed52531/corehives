@@ -29,12 +29,20 @@ class AmountField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String? Function(String?)? validator;
-  const AmountField({super.key, required this.controller, this.label = 'Amount (PKR)', this.validator});
+  final bool enabled;
+  const AmountField({
+    super.key,
+    required this.controller,
+    this.label = 'Amount (PKR)',
+    this.validator,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: false),
       decoration: InputDecoration(labelText: label, prefixText: 'PKR ', border: const OutlineInputBorder()),
       validator: validator ??
