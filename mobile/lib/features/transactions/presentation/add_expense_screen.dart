@@ -213,7 +213,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             storagePath: result.storagePath,
             status: AttachmentStatus.uploaded,
           );
-        } catch (_) {
+        } catch (e) {
+          print('Expense receipt upload failed: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $e')),
+            );
+          }
           await repo.markAttachmentFailed(docId);
           setState(() => _uploadFailed = true);
         }

@@ -37,6 +37,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
   double? _uploadProgress;
   bool _uploadFailed = false;
   bool _saving = false;
+  Transaction? _originalTx;
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
     final repo = ref.read(transactionRepositoryProvider);
     final tx = await repo.byId(widget.editId!);
     if (tx != null && mounted) {
+      _originalTx = tx;
       setState(() {
         _amountCtrl.text = (tx.amountPaisa / 100).toStringAsFixed(2);
         _notesCtrl.text = tx.notes ?? '';
@@ -172,6 +174,17 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             transactionId: docId,
           );
         }
+        if (_originalTx != null &&
+            _originalTx!.status.toLowerCase() == 'pending' &&
+            _status.toLowerCase() == 'completed' &&
+            _originalTx!.createdByUserId != user.uid) {
+          NotificationService.sendPendingWithdrawalCompletedNotification(
+            originalCreatorUserId: _originalTx!.createdByUserId,
+            amount: amountPaisa / 100,
+            updaterName: user.name,
+            transactionId: docId,
+          );
+        }
       } else {
         await repo.create(tx);
         if (isPendingWithdrawal) {
@@ -199,7 +212,13 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
             storagePath: result.storagePath,
             status: AttachmentStatus.uploaded,
           );
-        } catch (_) {
+        } catch (e) {
+          print('Cash-in receipt upload failed: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $e')),
+            );
+          }
           await repo.markAttachmentFailed(docId);
           setState(() => _uploadFailed = true);
         }

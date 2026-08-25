@@ -24,12 +24,27 @@ class ReceiptUploadService {
     void Function(double progress)? onProgress,
   }) async {
     final compressed = await _compress(file);
-    final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}${p.extension(file.path)}';
+    final ext = p.extension(file.path).toLowerCase();
+    String contentType = 'image/jpeg';
+    if (ext == '.png') {
+      contentType = 'image/png';
+    } else if (ext == '.heic' || ext == '.heif') {
+      contentType = 'image/heic';
+    } else if (ext == '.webp') {
+      contentType = 'image/webp';
+    } else if (ext == '.gif') {
+      contentType = 'image/gif';
+    }
+
+    final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}$ext';
     final storagePath =
         'receipts/$year/${month.toString().padLeft(2, '0')}/$transactionId/$fileName';
 
     final ref = _storage.ref(storagePath);
-    final task = ref.putFile(compressed);
+    final task = ref.putFile(
+      compressed,
+      SettableMetadata(contentType: contentType),
+    );
 
     task.snapshotEvents.listen((snap) {
       if (snap.totalBytes > 0) {
@@ -43,14 +58,19 @@ class ReceiptUploadService {
   }
 
   Future<File> _compress(File file) async {
-    final targetPath = '${file.path}_compressed.jpg';
-    final result = await FlutterImageCompress.compressAndGetFile(
-      file.absolute.path,
-      targetPath,
-      quality: 70,
-      minWidth: 1280,
-      minHeight: 1280,
-    );
-    return result != null ? File(result.path) : file;
+    try {
+      final targetPath = '${file.path}_compressed.jpg';
+      final result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70,
+        minWidth: 1280,
+        minHeight: 1280,
+      );
+      return result != null ? File(result.path) : file;
+    } catch (e) {
+      print('Receipt Upload: Compression failed, falling back to original: $e');
+      return file;
+    }
   }
 }
