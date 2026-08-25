@@ -10,6 +10,7 @@ import '../../config/presentation/config_providers.dart';
 import '../../config/domain/config_models.dart';
 import '../domain/transaction_model.dart';
 import '../presentation/transaction_providers.dart';
+import '../../../shared/services/notification_service.dart';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
   final String? editId;
@@ -41,6 +42,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     final tx = await repo.byId(widget.editId!);
     if (tx != null && mounted) {
       setState(() {
+        _originalTx = tx;
         _amountCtrl.text = (tx.amountPaisa / 100).toStringAsFixed(2);
         _descCtrl.text = tx.description ?? '';
         _notesCtrl.text = tx.notes ?? '';
@@ -89,6 +91,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     super.dispose();
   }
 
+  Transaction? _originalTx;
   ExpenseCategory? _category;
   ExpenseSubcategory? _subcategory;
   DateTime _date = DateTime.now();
@@ -194,6 +197,17 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           'updatedByUserId': user.uid,
           'updatedByName': user.name,
         });
+        if (_originalTx != null &&
+            _originalTx!.status.toLowerCase() == 'pending' &&
+            _status.toLowerCase() == 'completed' &&
+            _originalTx!.createdByUserId != user.uid) {
+          NotificationService.sendPendingReimbursementCompletedNotification(
+            originalCreatorUserId: _originalTx!.createdByUserId,
+            amount: amountPaisa / 100,
+            updaterName: user.name,
+            transactionId: docId,
+          );
+        }
       } else {
         await repo.create(tx);
       }

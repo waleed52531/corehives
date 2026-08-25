@@ -276,4 +276,77 @@ class NotificationService {
       print('FCM Error sending completed notification: $e');
     }
   }
+
+  static Future<void> sendPendingReimbursementCompletedNotification({
+    required String originalCreatorUserId,
+    required double amount,
+    required String updaterName,
+    required String transactionId,
+  }) async {
+    try {
+      // 1. Fetch FCM Service Account JSON
+      final fcmSettingsDoc = await _db.collection('app_settings').doc('fcm').get();
+      if (!fcmSettingsDoc.exists) return;
+      final saJson = fcmSettingsDoc.data()?['serviceAccountJson'] as String?;
+      if (saJson == null || saJson.isEmpty) return;
+
+      final amountFormatted = amount.toStringAsFixed(2);
+      final title = 'Reimbursement Completed';
+      final body = '$updaterName has completed your pending reimbursement of PKR $amountFormatted.';
+
+      // 2. Save notification log to original creator's subcollection
+      await _db.collection('users').doc(originalCreatorUserId).collection('notifications').add({
+        'title': title,
+        'body': body,
+        'createdAt': FieldValue.serverTimestamp(),
+        'read': false,
+        'transactionId': transactionId,
+        'type': 'reimbursement_completed',
+      });
+
+      // 3. Find the original creator's device tokens
+      final creatorDoc = await _db.collection('users').doc(originalCreatorUserId).get();
+      if (!creatorDoc.exists) return;
+      final data = creatorDoc.data();
+      final userTokens = data?['fcmTokens'];
+      if (userTokens is! List) return;
+      final tokens = userTokens.map((t) => t.toString()).toSet().toList();
+      if (tokens.isEmpty) return;
+
+      // 4. Initialize Google APIs Client with Service Account credentials
+      final credentialsMap = jsonDecode(saJson) as Map<String, dynamic>;
+      final projectId = credentialsMap['project_id'] as String;
+
+      final accountCredentials = ServiceAccountCredentials.fromJson(saJson);
+      final scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
+      final client = await clientViaServiceAccount(accountCredentials, scopes);
+
+      // 5. Send FCM HTTP v1 request for each token
+      for (final token in tokens) {
+        final payload = {
+          'message': {
+            'token': token,
+            'notification': {
+              'title': title,
+              'body': body,
+            },
+            'data': {
+              'transactionId': transactionId,
+              'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+            }
+          }
+        };
+
+        final response = await client.post(
+          Uri.parse('https://fcm.googleapis.com/v1/projects/$projectId/messages:send'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        );
+        print('FCM Reimbursement Completed Notification Response: ${response.statusCode}');
+      }
+      client.close();
+    } catch (e) {
+      print('FCM Error sending reimbursement completed notification: $e');
+    }
+  }
 }
