@@ -275,12 +275,31 @@ class HomeScreen extends ConsumerWidget {
                     Expanded(child: _SummaryCard(label: 'Net Cash Flow', paisa: net, isCashIn: net >= 0)),
                   ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Pending Cash In',
+                        paisa: pendingAllCashInsAsync.value?.fold<int>(0, (sum, t) => sum + t.amountPaisa) ?? 0,
+                        isCashIn: true,
+                        onTap: () => context.push('/pending-cash-ins'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Pending Reimburse.',
+                        paisa: pendingReimbursementsAsync.value?.fold<int>(0, (sum, t) => sum + t.amountPaisa) ?? 0,
+                        isCashIn: false,
+                        onTap: () => context.push('/pending-reimbursements'),
+                      ),
+                    ),
+                  ],
+                ),
                 const SectionHeader('Cash In Breakdown'),
                 if (bySource.isEmpty) const Text('No cash in recorded this month.', style: TextStyle(color: Colors.grey)),
                 ...bySource.entries.map((e) => _BreakdownRow(label: _capitalizeWords(e.key), paisa: e.value, isCashIn: true)),
-                const SectionHeader('Expenses Paid By'),
-                if (byPerson.isEmpty) const Text('No expenses recorded this month.', style: TextStyle(color: Colors.grey)),
-                ...byPerson.entries.map((e) => _BreakdownRow(label: _capitalizeWords(e.key), paisa: e.value, isCashIn: false)),
               ],
             ),
           );
@@ -331,22 +350,49 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final int paisa;
   final bool isCashIn;
-  const _SummaryCard({required this.label, required this.paisa, required this.isCashIn});
+  final VoidCallback? onTap;
+  const _SummaryCard({
+    required this.label,
+    required this.paisa,
+    required this.isCashIn,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 4),
-            MoneyText(paisa: paisa, isCashIn: isCashIn, fontSize: 18),
-          ],
-        ),
+    final cardContent = Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              if (onTap != null)
+                Icon(Icons.arrow_forward_ios, size: 10, color: Colors.grey.shade400),
+            ],
+          ),
+          const SizedBox(height: 4),
+          MoneyText(paisa: paisa, isCashIn: isCashIn, fontSize: 18),
+        ],
       ),
+    );
+
+    if (onTap != null) {
+      return Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: cardContent,
+        ),
+      );
+    }
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: cardContent,
     );
   }
 }
