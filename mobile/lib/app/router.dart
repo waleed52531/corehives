@@ -269,7 +269,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/transactions',
                 builder: (context, state) {
-                  return const TransactionsScreen();
+                  final initialFilter = state.uri.queryParameters['filter'];
+                  return TransactionsScreen(initialFilter: initialFilter);
                 },
               ),
             ],

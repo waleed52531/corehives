@@ -257,9 +257,23 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 Row(
                   children: [
-                    Expanded(child: _SummaryCard(label: 'Cash In', paisa: totalCashIn, isCashIn: true)),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Cash In',
+                        paisa: totalCashIn,
+                        isCashIn: true,
+                        onTap: () => context.go('/transactions?filter=cashIn'),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _SummaryCard(label: 'Cash Out', paisa: totalCashOut, isCashIn: false)),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Cash Out',
+                        paisa: totalCashOut,
+                        isCashIn: false,
+                        onTap: () => context.go('/transactions?filter=expense'),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),

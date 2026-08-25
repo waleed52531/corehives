@@ -13,7 +13,8 @@ import '../domain/transaction_model.dart';
 enum _TypeFilter { all, expense, cashIn, mine }
 
 class TransactionsScreen extends ConsumerStatefulWidget {
-  const TransactionsScreen({super.key});
+  final String? initialFilter;
+  const TransactionsScreen({super.key, this.initialFilter});
   @override
   ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
 }
@@ -22,6 +23,30 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   _TypeFilter _typeFilter = _TypeFilter.all;
   String _search = '';
   DateTimeRange? _selectedRange;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialFilter();
+  }
+
+  @override
+  void didUpdateWidget(covariant TransactionsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialFilter != oldWidget.initialFilter) {
+      setState(() {
+        _applyInitialFilter();
+      });
+    }
+  }
+
+  void _applyInitialFilter() {
+    if (widget.initialFilter == 'cashIn') {
+      _typeFilter = _TypeFilter.cashIn;
+    } else if (widget.initialFilter == 'expense') {
+      _typeFilter = _TypeFilter.expense;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
