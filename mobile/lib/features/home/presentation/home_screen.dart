@@ -176,7 +176,6 @@ class HomeScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const PendingWithdrawalsSection(),
                 balancesAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('Could not load balances: $e'),
@@ -623,87 +622,6 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: cardContent,
-    );
-  }
-}
-
-
-
-class PendingWithdrawalsSection extends ConsumerWidget {
-  const PendingWithdrawalsSection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pendingAsync = ref.watch(pendingUserWithdrawalsProvider);
-
-    return pendingAsync.when(
-      data: (list) {
-        if (list.isEmpty) return const SizedBox.shrink();
-
-        final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 20),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border(
-              left: BorderSide(color: Colors.orange.shade600, width: 4),
-              top: BorderSide(color: Colors.amber.shade100),
-              right: BorderSide(color: Colors.amber.shade100),
-              bottom: BorderSide(color: Colors.amber.shade100),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'ACTION REQUIRED',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Resolve ${list.length} pending client payments',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Text('Total Outstanding: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                          MoneyText(paisa: totalAmountPaisa, isCashIn: true, fontSize: 12),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.go('/transactions'),
-                  child: Row(
-                    children: [
-                      Text('View', style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
-                      Icon(Icons.chevron_right, size: 16, color: Colors.orange.shade800),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
