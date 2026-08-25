@@ -7,6 +7,7 @@ import '../../../shared/providers/auth_providers.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../transactions/presentation/transaction_providers.dart';
 import '../../config/presentation/config_providers.dart';
+import '../../../app/theme_provider.dart';
 
 const _appVersion = '0.1.0 (V1)';
 
@@ -106,6 +107,43 @@ class ProfileScreen extends ConsumerWidget {
                         const SnackBar(content: Text('FCM Token copied to clipboard')),
                       );
                     },
+                  );
+                },
+              ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final themeMode = ref.watch(themeModeProvider);
+                  return ListTile(
+                    leading: const Icon(Icons.brightness_medium_outlined),
+                    title: const Text('Theme Mode'),
+                    subtitle: Text(
+                      themeMode == ThemeMode.system
+                          ? 'Follow System'
+                          : (themeMode == ThemeMode.light ? 'Light Mode' : 'Dark Mode'),
+                    ),
+                    trailing: DropdownButton<ThemeMode>(
+                      value: themeMode,
+                      underline: const SizedBox.shrink(),
+                      onChanged: (mode) {
+                        if (mode != null) {
+                          ref.read(themeModeProvider.notifier).setThemeMode(mode);
+                        }
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: ThemeMode.system,
+                          child: Text('System'),
+                        ),
+                        DropdownMenuItem(
+                          value: ThemeMode.light,
+                          child: Text('Light'),
+                        ),
+                        DropdownMenuItem(
+                          value: ThemeMode.dark,
+                          child: Text('Dark'),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
