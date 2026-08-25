@@ -126,6 +126,24 @@ class NotificationService {
         return nameLower.contains(ownerLower) || ownerLower.contains(nameLower);
       }).toList();
 
+      final amountFormatted = amount.toStringAsFixed(2);
+
+      // Save to Firestore notifications subcollection for each target user
+      for (final doc in targetUsers) {
+        try {
+          await doc.reference.collection('notifications').add({
+            'title': 'Action Required: Pending Withdrawal',
+            'body': 'A new pending cash-in of PKR $amountFormatted has been added to your platform account.',
+            'createdAt': FieldValue.serverTimestamp(),
+            'read': false,
+            'transactionId': transactionId,
+            'type': 'pending_withdrawal',
+          });
+        } catch (e) {
+          print('FCM: Failed to save notification document: $e');
+        }
+      }
+
       // 4. Gather FCM tokens
       final tokens = <String>[];
       for (final doc in targetUsers) {
@@ -151,7 +169,6 @@ class NotificationService {
       final client = await clientViaServiceAccount(accountCredentials, scopes);
 
       // 6. Send FCM HTTP v1 request for each token
-      final amountFormatted = amount.toStringAsFixed(2);
 
       for (final token in uniqueTokens) {
         final payload = {

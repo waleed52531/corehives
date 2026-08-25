@@ -12,6 +12,7 @@ import '../features/transactions/presentation/transactions_screen.dart';
 import '../features/transactions/presentation/transaction_detail_screen.dart';
 import '../features/transactions/presentation/add_expense_screen.dart';
 import '../features/transactions/presentation/add_cash_in_screen.dart';
+import '../features/notifications/presentation/notifications_screen.dart';
 
 import '../features/payroll/presentation/payroll_screen.dart';
 import '../features/payroll/presentation/payroll_entry_detail_screen.dart';
@@ -160,6 +161,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/add-cash-in',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (c, s) => AddCashInScreen(editId: s.uri.queryParameters['editId']),
+      ),
+      GoRoute(
+        path: '/notifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/transactions/:id',

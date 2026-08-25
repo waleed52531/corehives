@@ -44,6 +44,11 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'employeeId'])
       );
       allow delete: if isAdmin();
+
+      match /notifications/{notifId} {
+        allow read, update, delete: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isActive();
+      }
     }
 
     match /employees/{id} {

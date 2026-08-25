@@ -6,6 +6,7 @@ import '../../../shared/widgets/common_widgets.dart';
 import '../../transactions/presentation/transaction_providers.dart';
 import '../../transactions/domain/transaction_model.dart';
 import '../../payroll/presentation/payroll_providers.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -15,11 +16,47 @@ class HomeScreen extends ConsumerWidget {
     final monthKey = ref.watch(selectedMonthKeyProvider);
     final txAsync = ref.watch(transactionsForMonthProvider);
     final payrollAsync = ref.watch(payrollEntriesForMonthProvider(monthKey));
+    final unreadCount = ref.watch(unreadNotificationsCountProvider).value ?? 0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('CoreHives'),
         actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                tooltip: 'Notifications',
+                onPressed: () => context.push('/notifications'),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.credit_card_outlined),
             tooltip: 'Platform IDs',
