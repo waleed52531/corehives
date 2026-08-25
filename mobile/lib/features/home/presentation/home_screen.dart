@@ -355,29 +355,88 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardContent = Padding(
-      padding: const EdgeInsets.all(14),
+    final isClickable = onTap != null;
+    final cardBg = isClickable
+        ? (isCashIn ? Colors.amber.shade50 : Colors.blue.shade50)
+        : null;
+    final cardBorder = isClickable
+        ? Border.all(
+            color: isCashIn ? Colors.orange.shade100 : Colors.blue.shade100,
+            width: 1,
+          )
+        : Border.all(color: Colors.grey.shade200, width: 1);
+    final leadingIcon = isClickable
+        ? (isCashIn ? Icons.account_balance_wallet_outlined : Icons.credit_card_outlined)
+        : null;
+    final themeColor = isClickable
+        ? (isCashIn ? Colors.orange.shade800 : Colors.blue.shade800)
+        : null;
+
+    final cardContent = Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: cardBorder,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              if (onTap != null)
-                Icon(Icons.arrow_forward_ios, size: 10, color: Colors.grey.shade400),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (leadingIcon != null) ...[
+                      Icon(leadingIcon, size: 14, color: themeColor),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: isClickable ? themeColor : Colors.grey.shade700,
+                          fontSize: 11,
+                          fontWeight: isClickable ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              if (isClickable)
+                Icon(Icons.arrow_forward_ios, size: 10, color: themeColor),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           MoneyText(paisa: paisa, isCashIn: isCashIn, fontSize: 18),
+          if (isClickable) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Tap to view',
+              style: TextStyle(
+                color: isCashIn ? Colors.orange.shade700 : Colors.blue.shade700,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ],
       ),
     );
 
-    if (onTap != null) {
+    if (isClickable) {
       return Card(
         margin: EdgeInsets.zero,
+        elevation: 1,
         clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: InkWell(
           onTap: onTap,
           child: cardContent,
@@ -387,6 +446,10 @@ class _SummaryCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: cardContent,
     );
   }
