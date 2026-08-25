@@ -35,11 +35,53 @@ class PendingReimbursementsScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, idx) {
+          final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
+
+          return Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.blue.shade100, width: 1),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'TOTAL PENDING REIMBURSEMENT',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    MoneyText(
+                      paisa: totalAmountPaisa,
+                      isCashIn: false,
+                      fontSize: 26,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'For all ${list.length} pending user expenses',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, idx) {
               final t = list[idx];
               final title = '${t.categoryName ?? 'Expense'} → ${t.subcategoryName ?? 'General'}';
               final descLine = t.description != null && t.description!.isNotEmpty
@@ -87,7 +129,10 @@ class PendingReimbursementsScreen extends ConsumerWidget {
                   onTap: () => context.push('/transactions/${t.id}'),
                 ),
               );
-            },
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),

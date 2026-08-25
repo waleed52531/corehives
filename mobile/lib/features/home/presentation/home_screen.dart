@@ -17,6 +17,8 @@ class HomeScreen extends ConsumerWidget {
     final txAsync = ref.watch(transactionsForMonthProvider);
     final payrollAsync = ref.watch(payrollEntriesForMonthProvider(monthKey));
     final unreadCount = ref.watch(unreadNotificationsCountProvider).value ?? 0;
+    final pendingReimbursementsAsync = ref.watch(pendingReimbursementsProvider);
+    final pendingReimbursementsCount = pendingReimbursementsAsync.value?.length ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -57,8 +59,43 @@ class HomeScreen extends ConsumerWidget {
                 ),
             ],
           ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.credit_card_outlined),
+                tooltip: 'Pending Reimbursements',
+                onPressed: () => context.push('/pending-reimbursements'),
+              ),
+              if (pendingReimbursementsCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      pendingReimbursementsCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
-            icon: const Icon(Icons.credit_card_outlined),
+            icon: const Icon(Icons.badge_outlined),
             tooltip: 'Platform IDs',
             onPressed: () => context.push('/platform-ids'),
           ),
@@ -106,7 +143,6 @@ class HomeScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               children: [
                 const PendingWithdrawalsSection(),
-                const PendingReimbursementsSection(),
                 balancesAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('Could not load balances: $e'),
@@ -339,72 +375,3 @@ class PendingWithdrawalsSection extends ConsumerWidget {
   }
 }
 
-class PendingReimbursementsSection extends ConsumerWidget {
-  const PendingReimbursementsSection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pendingAsync = ref.watch(pendingReimbursementsProvider);
-
-    return pendingAsync.when(
-      data: (list) {
-        if (list.isEmpty) return const SizedBox.shrink();
-
-        final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
-
-        return Card(
-          color: Colors.blue.shade50,
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.payment_outlined, color: Colors.blue.shade800),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'PENDING REIMBURSEMENTS',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'There are ${list.length} expenses waiting to be reimbursed.',
-                            style: const TextStyle(fontSize: 13, color: Colors.black87),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Text('Total Amount: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              MoneyText(paisa: totalAmountPaisa, isCashIn: false, fontSize: 13),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => context.push('/pending-reimbursements'),
-                      child: const Text('View All'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-}
