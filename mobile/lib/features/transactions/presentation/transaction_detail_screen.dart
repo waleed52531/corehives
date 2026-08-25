@@ -72,7 +72,12 @@ class TransactionDetailScreen extends ConsumerWidget {
                   _row('Upwork Account', t.upworkAccountName),
                   _row('Client', t.clientName),
                   _row('Salesperson', t.salespersonName),
-                  _row('Paid By', _capitalizeWords(t.paidByUserName)),
+                  _row(
+                    'Paid By',
+                    isCashIn
+                        ? _getOwnerName(t.upworkAccountName)
+                        : _capitalizeWords(t.paidByUserName),
+                  ),
                   _row('Payment Method', _capitalizeWords(t.paymentMethod)),
                   _row('Transaction Date', t.transactionDateKey),
                   _rowWidget('Status', _buildStatusBadge(t)),
@@ -209,6 +214,15 @@ class TransactionDetailScreen extends ConsumerWidget {
     if (nameLower.contains('zain') && (accLower.contains('abiha') || accLower.contains('zain'))) return true;
     if (nameLower.contains('hanzalah') && accLower.contains('hanzalah')) return true;
     return false;
+  }
+
+  String _getOwnerName(String? upworkAccountName) {
+    if (upworkAccountName == null) return 'Unknown';
+    final accLower = upworkAccountName.toLowerCase();
+    if (accLower.contains('alina')) return 'Ishtiaq';
+    if (accLower.contains('abiha') || accLower.contains('zain')) return 'Zain';
+    if (accLower.contains('hanzalah')) return 'Hanzalah';
+    return 'Other';
   }
 
   String _capitalizeWords(String? s) {
