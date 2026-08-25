@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../domain/transaction_model.dart';
 import '../presentation/transaction_providers.dart';
 
 class PendingReimbursementsScreen extends ConsumerWidget {
@@ -35,7 +36,17 @@ class PendingReimbursementsScreen extends ConsumerWidget {
             );
           }
 
-          final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
+          final sortedList = List<Transaction>.from(list)
+            ..sort((a, b) {
+              final aTime = a.createdAt;
+              final bTime = b.createdAt;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return bTime.compareTo(aTime);
+            });
+
+          final totalAmountPaisa = sortedList.fold<int>(0, (sum, t) => sum + t.amountPaisa);
 
           return Column(
             children: [
@@ -67,7 +78,7 @@ class PendingReimbursementsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'For all ${list.length} pending user expenses',
+                      'For all ${sortedList.length} pending user expenses',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.blue.shade800,
@@ -79,18 +90,18 @@ class PendingReimbursementsScreen extends ConsumerWidget {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: list.length,
+                  itemCount: sortedList.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, idx) {
-              final t = list[idx];
-              final title = '${t.categoryName ?? 'Expense'} → ${t.subcategoryName ?? 'General'}';
-              final descLine = t.description != null && t.description!.isNotEmpty
-                  ? '\n${t.description}'
-                  : '';
-              final subtitle = 'Paid By ${_capitalizeWords(t.paidByUserName)} · ${t.transactionDateKey}$descLine';
+                    final t = sortedList[idx];
+                    final title = '${t.categoryName ?? 'Expense'} → ${t.subcategoryName ?? 'General'}';
+                    final descLine = t.description != null && t.description!.isNotEmpty
+                        ? '\n${t.description}'
+                        : '';
+                    final subtitle = 'Paid By ${_capitalizeWords(t.paidByUserName)} · ${t.transactionDateKey}$descLine';
 
-              return Card(
-                elevation: 1,
+                    return Card(
+                      elevation: 1,
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   leading: const CircleAvatar(

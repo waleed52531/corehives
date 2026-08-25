@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../domain/transaction_model.dart';
 import '../presentation/transaction_providers.dart';
 
 class PendingCashInsScreen extends ConsumerWidget {
@@ -35,7 +36,17 @@ class PendingCashInsScreen extends ConsumerWidget {
             );
           }
 
-          final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
+          final sortedList = List<Transaction>.from(list)
+            ..sort((a, b) {
+              final aTime = a.createdAt;
+              final bTime = b.createdAt;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return bTime.compareTo(aTime);
+            });
+
+          final totalAmountPaisa = sortedList.fold<int>(0, (sum, t) => sum + t.amountPaisa);
 
           return Column(
             children: [
@@ -65,9 +76,8 @@ class PendingCashInsScreen extends ConsumerWidget {
                       isCashIn: true,
                       fontSize: 26,
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      'For all ${list.length} pending client payments',
+                      'For all ${sortedList.length} pending client payments',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.orange.shade800,
@@ -79,10 +89,10 @@ class PendingCashInsScreen extends ConsumerWidget {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: list.length,
+                  itemCount: sortedList.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, idx) {
-                    final t = list[idx];
+                    final t = sortedList[idx];
                     final accName = t.upworkAccountName ?? 'Unknown Account';
                     final owner = _getOwnerName(accName);
                     final creator = _capitalizeWords(t.createdByName);

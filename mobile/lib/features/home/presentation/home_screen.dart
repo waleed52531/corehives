@@ -133,11 +133,6 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.badge_outlined),
-            tooltip: 'Platform IDs',
-            onPressed: () => context.push('/platform-ids'),
-          ),
-          IconButton(
             icon: const Icon(Icons.people_outline),
             tooltip: 'Employees',
             onPressed: () => context.push('/employees'),
