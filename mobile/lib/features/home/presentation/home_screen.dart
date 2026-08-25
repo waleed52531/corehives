@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../shared/models/month_key.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../transactions/presentation/transaction_providers.dart';
@@ -157,7 +158,17 @@ class HomeScreen extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('CUMULATIVE LEDGER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('CUMULATIVE LEDGER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _getCycleDateRangeString(monthKey),
+                                    style: TextStyle(fontSize: 9, color: Colors.green.shade700.withOpacity(0.8), fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
                               InkWell(
                                 onTap: () => _pickMonth(context, ref),
                                 borderRadius: BorderRadius.circular(4),
@@ -260,6 +271,21 @@ class HomeScreen extends ConsumerWidget {
       if (word.isEmpty) return '';
       return word[0].toUpperCase() + word.substring(1);
     }).join(' ');
+  }
+
+  String _getCycleDateRangeString(String monthKey) {
+    try {
+      final parts = monthKey.split('-');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final start = DateTime(year, month - 1, 11);
+      final end = DateTime(year, month, 10);
+      final startFmt = DateFormat('MMM d, yyyy').format(start);
+      final endFmt = DateFormat('MMM d, yyyy').format(end);
+      return '$startFmt to $endFmt';
+    } catch (_) {
+      return '';
+    }
   }
 }
 
