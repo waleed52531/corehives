@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
 import '../presentation/transaction_providers.dart';
@@ -26,7 +30,20 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final user = ref.watch(currentAppUserProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Transactions — $monthKey')),
+      appBar: AppBar(
+        title: Text('Transactions — $monthKey'),
+        actions: [
+          txAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (transactions) => IconButton(
+              icon: const Icon(Icons.file_download_outlined),
+              tooltip: 'Export to Excel',
+              onPressed: () => _exportToExcel(transactions, monthKey),
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -154,5 +171,96 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _exportToExcel(List<Transaction> transactions, String monthKey) async {
+    try {
+      final excel = Excel.createExcel();
+      
+      // Rename default sheet to Earnings
+      final defaultSheet = excel.getDefaultSheet() ?? 'Sheet1';
+      excel.rename(defaultSheet, 'Earnings');
+      
+      final Sheet earningsSheet = excel['Earnings'];
+      final Sheet expenseSheet = excel['Expense'];
+
+      // Add Headers
+      earningsSheet.appendRow([
+        TextCellValue('Date'),
+        TextCellValue('Source Type'),
+        TextCellValue('Account Name'),
+        TextCellValue('Client Name'),
+        TextCellValue('Project Name'),
+        TextCellValue('Amount (PKR)'),
+        TextCellValue('Status'),
+        TextCellValue('Created By'),
+        TextCellValue('Notes'),
+      ]);
+
+      expenseSheet.appendRow([
+        TextCellValue('Date'),
+        TextCellValue('Category'),
+        TextCellValue('Subcategory'),
+        TextCellValue('Payee'),
+        TextCellValue('Description'),
+        TextCellValue('Payment Method'),
+        TextCellValue('Amount (PKR)'),
+        TextCellValue('Status'),
+        TextCellValue('Created By'),
+        TextCellValue('Notes'),
+      ]);
+
+      // Filter and append data
+      for (final t in transactions) {
+        final amount = t.amountPaisa / 100.0;
+        if (t.type == TxType.cashIn) {
+          earningsSheet.appendRow([
+            TextCellValue(t.transactionDateKey),
+            TextCellValue(t.sourceType ?? ''),
+            TextCellValue(t.upworkAccountName ?? ''),
+            TextCellValue(t.clientName ?? ''),
+            TextCellValue(t.projectName ?? ''),
+            DoubleCellValue(amount),
+            TextCellValue(t.status),
+            TextCellValue(t.createdByName ?? ''),
+            TextCellValue(t.notes ?? ''),
+          ]);
+        } else if (t.type == TxType.expense) {
+          expenseSheet.appendRow([
+            TextCellValue(t.transactionDateKey),
+            TextCellValue(t.categoryName ?? ''),
+            TextCellValue(t.subcategoryName ?? ''),
+            TextCellValue(t.payeeName ?? ''),
+            TextCellValue(t.description ?? ''),
+            TextCellValue(t.paymentMethod ?? ''),
+            DoubleCellValue(amount),
+            TextCellValue(t.status),
+            TextCellValue(t.createdByName ?? ''),
+            TextCellValue(t.notes ?? ''),
+          ]);
+        }
+      }
+
+      // Encode and write file
+      final fileBytes = excel.save();
+      if (fileBytes == null) {
+        throw Exception('Failed to generate Excel file bytes.');
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/CoreHives_Transactions_$monthKey.xlsx';
+      final file = File(filePath);
+      await file.writeAsBytes(fileBytes);
+
+      // Share the file
+      final xFile = XFile(filePath, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      await Share.shareXFiles([xFile], text: 'CoreHives Transactions Export - $monthKey');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export: $e')),
+        );
+      }
+    }
   }
 }
