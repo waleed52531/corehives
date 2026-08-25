@@ -59,6 +59,15 @@ class NotificationsScreen extends ConsumerWidget {
     await batch.commit();
   }
 
+  Future<void> _deleteNotification(String uid, String notifId) async {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .doc(notifId)
+        .delete();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentAppUserProvider).value;
@@ -110,52 +119,92 @@ class NotificationsScreen extends ConsumerWidget {
                     final item = list[index];
                     final dateStr = DateFormat('MMM dd, hh:mm a').format(item.createdAt);
 
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: item.read ? Colors.grey.shade100 : Colors.blue.shade50,
-                        child: Icon(
-                          item.type == 'pending_withdrawal'
-                              ? Icons.pending_actions_outlined
-                              : Icons.notifications_none_outlined,
-                          color: item.read ? Colors.grey : Colors.blue,
-                        ),
+                    return Dismissible(
+                      key: Key(item.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        color: Colors.red.shade600,
+                        child: const Icon(Icons.delete_outline, color: Colors.white),
                       ),
-                      title: Text(
-                        item.title,
-                        style: TextStyle(
-                          fontWeight: item.read ? FontWeight.normal : FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text(item.body, style: TextStyle(color: Colors.grey.shade800)),
-                          const SizedBox(height: 4),
-                          Text(dateStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ],
-                      ),
-                      trailing: !item.read
-                          ? Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
+                      onDismissed: (direction) async {
+                        await _deleteNotification(user.uid, item.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Deleted "${item.title}"'),
+                              action: SnackBarAction(
+                                label: 'Undo',
+                                onPressed: () async {
+                                  await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(user.uid)
+                                      .collection('notifications')
+                                      .doc(item.id)
+                                      .set({
+                                    'title': item.title,
+                                    'body': item.body,
+                                    'createdAt': item.createdAt,
+                                    'read': item.read,
+                                    'transactionId': item.transactionId,
+                                    'type': item.type,
+                                  });
+                                },
                               ),
-                            )
-                          : null,
-                      onTap: () async {
-                        // Mark as read
-                        if (!item.read) {
-                          await _markAsRead(user.uid, item.id);
-                        }
-                        
-                        // Navigate to the transaction detail page
-                        if (item.transactionId.isNotEmpty && context.mounted) {
-                          context.push('/transactions/${item.transactionId}');
+                            ),
+                          );
                         }
                       },
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: item.read ? Colors.grey.shade100 : Colors.blue.shade50,
+                          child: Icon(
+                            item.type == 'pending_withdrawal'
+                                ? Icons.pending_actions_outlined
+                                : (item.type == 'reimbursement_completed'
+                                    ? Icons.assignment_turned_in_outlined
+                                    : Icons.notifications_none_outlined),
+                            color: item.read ? Colors.grey : Colors.blue,
+                          ),
+                        ),
+                        title: Text(
+                          item.title,
+                          style: TextStyle(
+                            fontWeight: item.read ? FontWeight.normal : FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(item.body, style: TextStyle(color: Colors.grey.shade800)),
+                            const SizedBox(height: 4),
+                            Text(dateStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
+                        ),
+                        trailing: !item.read
+                            ? Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                ),
+                              )
+                            : null,
+                        onTap: () async {
+                          // Mark as read
+                          if (!item.read) {
+                            await _markAsRead(user.uid, item.id);
+                          }
+                          
+                          // Navigate to the transaction detail page
+                          if (item.transactionId.isNotEmpty && context.mounted) {
+                            context.push('/transactions/${item.transactionId}');
+                          }
+                        },
+                      ),
                     );
                   },
                 );
