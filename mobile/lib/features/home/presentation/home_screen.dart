@@ -180,11 +180,25 @@ class HomeScreen extends ConsumerWidget {
                 balancesAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('Could not load balances: $e'),
-                  data: (bal) => Card(
-                    color: Colors.green.shade50,
-                    margin: const EdgeInsets.only(bottom: 16),
+                  data: (bal) => Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0F5A47), Color(0xFF083C2F)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -194,60 +208,126 @@ class HomeScreen extends ConsumerWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('CUMULATIVE LEDGER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                                  Text(
+                                    'CUMULATIVE LEDGER',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal.shade200,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    _getCycleDateRangeString(monthKey),
-                                    style: TextStyle(fontSize: 9, color: Colors.green.shade700.withOpacity(0.8), fontWeight: FontWeight.w500),
+                                    _getCycleDateRangeString(monthKey.toString()),
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                   ),
                                 ],
                               ),
-                              InkWell(
-                                onTap: () => _pickMonth(context, ref),
-                                borderRadius: BorderRadius.circular(4),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        monthKey.toString(),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green.shade800,
+                              Material(
+                                color: Colors.white.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                child: InkWell(
+                                  onTap: () => _pickMonth(context, ref),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          monthKey.toString(),
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Icon(Icons.arrow_drop_down, size: 16, color: Colors.green.shade800),
-                                    ],
+                                        const SizedBox(width: 2),
+                                        const Icon(Icons.arrow_drop_down, size: 14, color: Colors.white),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Opening Balance:', style: TextStyle(color: Colors.grey)),
-                              MoneyText(paisa: bal.openingBalancePaisa, isCashIn: true, fontSize: 15),
-                            ],
+                          const SizedBox(height: 20),
+                          Text(
+                            'Closing Balance',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.teal.shade100,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Monthly Net Flow:', style: TextStyle(color: Colors.grey)),
-                              MoneyText(paisa: net, isCashIn: net >= 0, fontSize: 15),
-                            ],
+                          MoneyText(
+                            paisa: bal.closingBalancePaisa,
+                            isCashIn: bal.closingBalancePaisa >= 0,
+                            fontSize: 30,
+                            color: Colors.white,
                           ),
-                          const Divider(height: 20),
+                          const SizedBox(height: 16),
+                          Container(
+                            height: 1,
+                            color: Colors.white.withOpacity(0.15),
+                          ),
+                          const SizedBox(height: 16),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Closing Balance:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              MoneyText(paisa: bal.closingBalancePaisa, isCashIn: bal.closingBalancePaisa >= 0, fontSize: 18),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Opening Balance',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.teal.shade200,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    MoneyText(
+                                      paisa: bal.openingBalancePaisa,
+                                      isCashIn: bal.openingBalancePaisa >= 0,
+                                      fontSize: 15,
+                                      color: Colors.white,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 28,
+                                color: Colors.white.withOpacity(0.15),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Monthly Net Flow',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.teal.shade200,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    MoneyText(
+                                      paisa: net,
+                                      isCashIn: net >= 0,
+                                      fontSize: 15,
+                                      color: Colors.white,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -255,6 +335,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SectionHeader('Operational Metrics'),
                 Row(
                   children: [
                     Expanded(
@@ -284,7 +365,7 @@ class HomeScreen extends ConsumerWidget {
                     Expanded(child: _SummaryCard(label: 'Net Cash Flow', paisa: net, isCashIn: net >= 0)),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SectionHeader('Actions Pending'),
                 Row(
                   children: [
                     Expanded(
@@ -307,8 +388,55 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
                 const SectionHeader('Cash In Breakdown'),
-                if (bySource.isEmpty) const Text('No cash in recorded this month.', style: TextStyle(color: Colors.grey)),
-                ...bySource.entries.map((e) => _BreakdownRow(label: _capitalizeWords(e.key), paisa: e.value, isCashIn: true)),
+                if (bySource.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('No cash in recorded this month.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  )
+                else
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(top: 4, bottom: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: bySource.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade100),
+                      itemBuilder: (context, idx) {
+                        final entry = bySource.entries.elementAt(idx);
+                        final sourceName = _capitalizeWords(entry.key);
+                        IconData sourceIcon = Icons.account_balance_outlined;
+                        Color iconColor = Colors.teal;
+                        if (sourceName.toLowerCase().contains('upwork')) {
+                          sourceIcon = Icons.work_outline;
+                          iconColor = Colors.green;
+                        } else if (sourceName.toLowerCase().contains('fiverr')) {
+                          sourceIcon = Icons.work_history_outlined;
+                          iconColor = Colors.green.shade700;
+                        } else if (sourceName.toLowerCase().contains('jazzcash') || sourceName.toLowerCase().contains('easypaisa')) {
+                          sourceIcon = Icons.mobile_friendly;
+                          iconColor = Colors.purple;
+                        }
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: iconColor.withOpacity(0.1),
+                            radius: 16,
+                            child: Icon(sourceIcon, size: 16, color: iconColor),
+                          ),
+                          title: Text(
+                            sourceName,
+                            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                          ),
+                          trailing: MoneyText(paisa: entry.value, isCashIn: true, fontSize: 14),
+                        );
+                      },
+                    ),
+                  ),
               ],
             ),
           );
@@ -370,72 +498,101 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isClickable = onTap != null;
-    final cardBg = isClickable
-        ? (isCashIn ? Colors.amber.shade50 : Colors.blue.shade50)
-        : null;
-    final cardBorder = isClickable
-        ? Border.all(
-            color: isCashIn ? Colors.orange.shade100 : Colors.blue.shade100,
-            width: 1,
-          )
-        : Border.all(color: Colors.grey.shade200, width: 1);
-    final leadingIcon = isClickable
-        ? (isCashIn ? Icons.account_balance_wallet_outlined : Icons.credit_card_outlined)
-        : null;
-    final themeColor = isClickable
-        ? (isCashIn ? Colors.orange.shade800 : Colors.blue.shade800)
-        : null;
+
+    Color iconColor;
+    Color circleBg;
+    IconData iconData;
+    Color moneyTextColor;
+
+    if (label == 'Cash In') {
+      iconColor = Colors.green.shade700;
+      circleBg = Colors.green.shade50;
+      iconData = Icons.arrow_upward;
+      moneyTextColor = Colors.green.shade800;
+    } else if (label == 'Cash Out') {
+      iconColor = Colors.red.shade700;
+      circleBg = Colors.red.shade50;
+      iconData = Icons.arrow_downward;
+      moneyTextColor = Colors.red.shade800;
+    } else if (label == 'Payroll Paid') {
+      iconColor = Colors.red.shade700;
+      circleBg = Colors.red.shade50;
+      iconData = Icons.people_outline;
+      moneyTextColor = Colors.red.shade800;
+    } else if (label == 'Net Cash Flow') {
+      final isPositive = paisa >= 0;
+      iconColor = isPositive ? Colors.teal.shade700 : Colors.red.shade700;
+      circleBg = isPositive ? Colors.teal.shade50 : Colors.red.shade50;
+      iconData = isPositive ? Icons.trending_up : Icons.trending_down;
+      moneyTextColor = isPositive ? Colors.teal.shade800 : Colors.red.shade800;
+    } else if (label == 'Pending Cash In') {
+      iconColor = Colors.orange.shade700;
+      circleBg = Colors.orange.shade50;
+      iconData = Icons.hourglass_top_outlined;
+      moneyTextColor = Colors.orange.shade800;
+    } else if (label == 'Pending Reimburse.') {
+      iconColor = Colors.red.shade700;
+      circleBg = Colors.red.shade50;
+      iconData = Icons.history_edu_outlined;
+      moneyTextColor = Colors.red.shade800;
+    } else {
+      iconColor = Colors.grey;
+      circleBg = Colors.grey.shade100;
+      iconData = Icons.info_outline;
+      moneyTextColor = Colors.black87;
+    }
 
     final cardContent = Container(
       decoration: BoxDecoration(
-        color: cardBg,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: cardBorder,
+        border: Border.all(color: iconColor.withValues(alpha: 0.15), width: 1.2),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              CircleAvatar(
+                radius: 13,
+                backgroundColor: circleBg,
+                child: Icon(iconData, size: 13, color: iconColor),
+              ),
+              const SizedBox(width: 8),
               Expanded(
-                child: Row(
-                  children: [
-                    if (leadingIcon != null) ...[
-                      Icon(leadingIcon, size: 14, color: themeColor),
-                      const SizedBox(width: 6),
-                    ],
-                    Expanded(
-                      child: Text(
-                        label,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: isClickable ? themeColor : Colors.grey.shade700,
-                          fontSize: 11,
-                          fontWeight: isClickable ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(width: 4),
-              if (isClickable)
-                Icon(Icons.arrow_forward_ios, size: 10, color: themeColor),
+              if (isClickable) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios, size: 9, color: Colors.grey.shade300),
+              ],
             ],
           ),
-          const SizedBox(height: 6),
-          MoneyText(paisa: paisa, isCashIn: isCashIn, fontSize: 18),
+          const SizedBox(height: 10),
+          MoneyText(
+            paisa: paisa,
+            isCashIn: isCashIn,
+            fontSize: 17,
+            color: moneyTextColor,
+          ),
           if (isClickable) ...[
             const SizedBox(height: 4),
             Text(
               'Tap to view',
               style: TextStyle(
-                color: isCashIn ? Colors.orange.shade700 : Colors.blue.shade700,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+                color: iconColor.withValues(alpha: 0.8),
+                fontSize: 8.5,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -447,6 +604,7 @@ class _SummaryCard extends StatelessWidget {
       return Card(
         margin: EdgeInsets.zero,
         elevation: 1,
+        shadowColor: Colors.black.withValues(alpha: 0.05),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -469,23 +627,7 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _BreakdownRow extends StatelessWidget {
-  final String label;
-  final int paisa;
-  final bool isCashIn;
-  const _BreakdownRow({required this.label, required this.paisa, required this.isCashIn});
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(label), MoneyText(paisa: paisa, isCashIn: isCashIn, fontSize: 14)],
-      ),
-    );
-  }
-}
 
 class PendingWithdrawalsSection extends ConsumerWidget {
   const PendingWithdrawalsSection({super.key});
@@ -500,51 +642,60 @@ class PendingWithdrawalsSection extends ConsumerWidget {
 
         final totalAmountPaisa = list.fold<int>(0, (sum, t) => sum + t.amountPaisa);
 
-        return Card(
-          color: Colors.amber.shade50,
-          margin: const EdgeInsets.only(bottom: 16),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border(
+              left: BorderSide(color: Colors.orange.shade600, width: 4),
+              top: BorderSide(color: Colors.amber.shade100),
+              right: BorderSide(color: Colors.amber.shade100),
+              bottom: BorderSide(color: Colors.amber.shade100),
+            ),
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'ACTION REQUIRED',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ACTION REQUIRED',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Resolve ${list.length} pending client payments',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
                         children: [
-                          Text(
-                            'You have ${list.length} pending withdrawals to resolve.',
-                            style: const TextStyle(fontSize: 13, color: Colors.black87),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Text('Total Amount: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              MoneyText(paisa: totalAmountPaisa, isCashIn: true, fontSize: 13),
-                            ],
-                          ),
+                          const Text('Total Outstanding: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          MoneyText(paisa: totalAmountPaisa, isCashIn: true, fontSize: 12),
                         ],
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () => context.go('/transactions'),
-                      child: const Text('View All'),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.go('/transactions'),
+                  child: Row(
+                    children: [
+                      Text('View', style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
+                      Icon(Icons.chevron_right, size: 16, color: Colors.orange.shade800),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -6,14 +6,21 @@ class MoneyText extends StatelessWidget {
   final int paisa;
   final bool isCashIn;
   final double fontSize;
-  const MoneyText({super.key, required this.paisa, this.isCashIn = true, this.fontSize = 16});
+  final Color? color;
+  const MoneyText({
+    super.key,
+    required this.paisa,
+    this.isCashIn = true,
+    this.fontSize = 16,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = isCashIn ? CoreHivesTheme.cashInColor : CoreHivesTheme.cashOutColor;
+    final finalColor = color ?? (isCashIn ? CoreHivesTheme.cashInColor : CoreHivesTheme.cashOutColor);
     return Text(
       Money(paisa).format(),
-      style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: fontSize),
+      style: TextStyle(color: finalColor, fontWeight: FontWeight.w600, fontSize: fontSize),
     );
   }
 }
