@@ -50,38 +50,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search description, category, payee...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
-                ),
-                const SizedBox(height: 8),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SegmentedButton<_TypeFilter>(
-                          showSelectedIcon: false,
-                          segments: const [
-                            ButtonSegment(value: _TypeFilter.all, label: Text('All')),
-                            ButtonSegment(value: _TypeFilter.expense, label: Text('Expense')),
-                            ButtonSegment(value: _TypeFilter.cashIn, label: Text('Cash In')),
-                            ButtonSegment(value: _TypeFilter.mine, label: Text('My Entries')),
-                          ],
-                          selected: {_typeFilter},
-                          onSelectionChanged: (s) => setState(() => _typeFilter = s.first),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    const Text('Filter by Date Range:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
                     InputChip(
                       label: Text(_selectedRange == null
-                          ? 'Range'
+                          ? 'Select Range'
                           : '${_selectedRange!.start.month}/${_selectedRange!.start.day} - ${_selectedRange!.end.month}/${_selectedRange!.end.day}'),
                       avatar: _selectedRange == null ? const Icon(Icons.calendar_today, size: 16) : null,
                       onDeleted: _selectedRange != null
@@ -101,6 +76,31 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Search description, category, payee...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<_TypeFilter>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: _TypeFilter.all, label: Text('All')),
+                      ButtonSegment(value: _TypeFilter.expense, label: Text('Expense')),
+                      ButtonSegment(value: _TypeFilter.cashIn, label: Text('Cash In')),
+                      ButtonSegment(value: _TypeFilter.mine, label: Text('My Entries')),
+                    ],
+                    selected: {_typeFilter},
+                    onSelectionChanged: (s) => setState(() => _typeFilter = s.first),
+                  ),
+                ),
               ],
             ),
           ),
@@ -109,7 +109,17 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Could not load transactions: $e')),
               data: (transactions) {
-                var filtered = transactions.where((t) {
+                final sortedList = List<Transaction>.from(transactions)
+                  ..sort((a, b) {
+                    final aTime = a.createdAt;
+                    final bTime = b.createdAt;
+                    if (aTime == null && bTime == null) return 0;
+                    if (aTime == null) return 1;
+                    if (bTime == null) return -1;
+                    return bTime.compareTo(aTime);
+                  });
+
+                var filtered = sortedList.where((t) {
                   if (_typeFilter == _TypeFilter.expense && t.type != TxType.expense) return false;
                   if (_typeFilter == _TypeFilter.cashIn && t.type != TxType.cashIn) return false;
                   if (_typeFilter == _TypeFilter.mine && t.createdByUserId != user?.uid) return false;
