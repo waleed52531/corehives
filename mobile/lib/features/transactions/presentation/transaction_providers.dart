@@ -169,3 +169,8 @@ final pendingReimbursementsProvider = StreamProvider.autoDispose<List<Transactio
   return repo.pendingReimbursements();
 });
 
+final pendingAllCashInsProvider = StreamProvider.autoDispose<List<Transaction>>((ref) {
+  final repo = ref.watch(transactionRepositoryProvider);
+  return repo.pendingCashIns();
+});
+

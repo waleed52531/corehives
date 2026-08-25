@@ -24,6 +24,7 @@ import '../features/employees/presentation/add_employee_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/config/presentation/platform_ids_screen.dart';
 import '../features/transactions/presentation/pending_reimbursements_screen.dart';
+import '../features/transactions/presentation/pending_cash_ins_screen.dart';
 import '../shared/providers/auth_providers.dart';
 
 import 'app_shell.dart';
@@ -221,6 +222,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/pending-reimbursements',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (c, s) => const PendingReimbursementsScreen(),
+      ),
+      GoRoute(
+        path: '/pending-cash-ins',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (c, s) => const PendingCashInsScreen(),
       ),
 
       // ============================================================

@@ -20,6 +20,8 @@ class HomeScreen extends ConsumerWidget {
     final unreadCount = ref.watch(unreadNotificationsCountProvider).value ?? 0;
     final pendingReimbursementsAsync = ref.watch(pendingReimbursementsProvider);
     final pendingReimbursementsCount = pendingReimbursementsAsync.value?.length ?? 0;
+    final pendingAllCashInsAsync = ref.watch(pendingAllCashInsProvider);
+    final pendingAllCashInsCount = pendingAllCashInsAsync.value?.length ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,6 +66,41 @@ class HomeScreen extends ConsumerWidget {
             alignment: Alignment.center,
             children: [
               IconButton(
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                tooltip: 'Pending Withdrawals',
+                onPressed: () => context.push('/pending-cash-ins'),
+              ),
+              if (pendingAllCashInsCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      pendingAllCashInsCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
                 icon: const Icon(Icons.credit_card_outlined),
                 tooltip: 'Pending Reimbursements',
                 onPressed: () => context.push('/pending-reimbursements'),
@@ -75,7 +112,7 @@ class HomeScreen extends ConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: Colors.red,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     constraints: const BoxConstraints(
@@ -139,6 +176,7 @@ class HomeScreen extends ConsumerWidget {
               ref.invalidate(allTransactionsSinceBackupProvider);
               ref.invalidate(pendingUserWithdrawalsProvider);
               ref.invalidate(pendingReimbursementsProvider);
+              ref.invalidate(pendingAllCashInsProvider);
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
