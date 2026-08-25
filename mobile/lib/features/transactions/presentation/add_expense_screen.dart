@@ -256,6 +256,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentAppUserProvider).value;
+    final isEditingOthers = user != null &&
+        widget.editId != null &&
+        _originalTx != null &&
+        _originalTx!.createdByUserId != user.uid;
+
     final categoriesAsync = ref.watch(activeExpenseCategoriesProvider);
     final payeesAsync = ref.watch(activePayeesProvider);
 
@@ -266,7 +272,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            AmountField(controller: _amountCtrl),
+            AmountField(controller: _amountCtrl, enabled: !isEditingOthers),
             const SectionHeader('Category'),
             categoriesAsync.when(
               data: (cats) {
@@ -277,10 +283,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   value: _category,
                   decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
                   items: dropdownItems.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-                  onChanged: (v) => setState(() {
-                    _category = v;
-                    _subcategory = null;
-                  }),
+                  onChanged: isEditingOthers
+                      ? null
+                      : (v) => setState(() {
+                            _category = v;
+                            _subcategory = null;
+                          }),
                   validator: (v) => v == null ? 'Required' : null,
                 );
               },
@@ -311,10 +319,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           value: _subcategory,
                           decoration: const InputDecoration(labelText: 'Subcategory', border: OutlineInputBorder()),
                           items: dropdownItems.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
-                          onChanged: (v) => setState(() {
-                            _subcategory = v;
-                            _selectedPlatformAccount = null;
-                          }),
+                          onChanged: isEditingOthers
+                              ? null
+                              : (v) => setState(() {
+                                    _subcategory = v;
+                                    _selectedPlatformAccount = null;
+                                  }),
                           validator: (v) => v == null ? 'Required' : null,
                         ),
                         if (showPlatformDropdown) ...[
@@ -339,16 +349,20 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                         items: dropdownItems
                                             .map((a) => DropdownMenuItem(value: a, child: Text(a.name)))
                                             .toList(),
-                                        onChanged: (a) => setState(() => _selectedPlatformAccount = a),
+                                        onChanged: isEditingOthers
+                                            ? null
+                                            : (a) => setState(() => _selectedPlatformAccount = a),
                                         validator: (a) => a == null ? 'Required' : null,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(Icons.add_circle_outline),
-                                      tooltip: 'Manage Platform IDs',
-                                      onPressed: () => context.push('/platform-ids'),
-                                    ),
+                                    if (!isEditingOthers) ...[
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.add_circle_outline),
+                                        tooltip: 'Manage Platform IDs',
+                                        onPressed: () => context.push('/platform-ids'),
+                                      ),
+                                    ],
                                   ],
                                 );
                               },
@@ -369,20 +383,23 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               contentPadding: EdgeInsets.zero,
               title: const Text('Transaction Date'),
               subtitle: Text(MonthKey.dateKeyFromDate(_date)),
-              trailing: const Icon(Icons.calendar_today, size: 18),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _date,
-                  firstDate: DateTime(2024),
-                  lastDate: DateTime.now().add(const Duration(days: 1)),
-                );
-                if (picked != null) setState(() => _date = picked);
-              },
+              trailing: isEditingOthers ? null : const Icon(Icons.calendar_today, size: 18),
+              onTap: isEditingOthers
+                  ? null
+                  : () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _date,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime.now().add(const Duration(days: 1)),
+                      );
+                      if (picked != null) setState(() => _date = picked);
+                    },
             ),
             const SectionHeader('Notes'),
             TextFormField(
               controller: _descCtrl,
+              enabled: !isEditingOthers,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
             ),
@@ -390,11 +407,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             payeesAsync.when(
               data: (payees) => TextFormField(
                 controller: _payeeCtrl,
+                enabled: !isEditingOthers,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: 'Paid To / Payee (optional)',
                   border: const OutlineInputBorder(),
-                  suffixIcon: payees.isEmpty
+                  suffixIcon: isEditingOthers || payees.isEmpty
                       ? null
                       : PopupMenuButton<Payee>(
                           icon: const Icon(Icons.arrow_drop_down),
@@ -416,6 +434,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
               loading: () => TextFormField(
                 controller: _payeeCtrl,
+                enabled: !isEditingOthers,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Paid To / Payee (optional)',
@@ -431,6 +450,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
               error: (_, __) => TextFormField(
                 controller: _payeeCtrl,
+                enabled: !isEditingOthers,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Paid To / Payee (optional)',
@@ -443,7 +463,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               value: _paymentMethod,
               decoration: const InputDecoration(labelText: 'Payment Method (optional)', border: OutlineInputBorder()),
               items: _paymentMethods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-              onChanged: (v) => setState(() => _paymentMethod = v),
+              onChanged: isEditingOthers ? null : (v) => setState(() => _paymentMethod = v),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -457,16 +477,18 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 if (v != null) setState(() => _status = v);
               },
             ),
-            const SectionHeader('Receipt'),
-            ReceiptPicker(
-              file: _receiptFile,
-              uploadProgress: _uploadProgress,
-              failed: _uploadFailed,
-              onPicked: (f) => setState(() {
-                _receiptFile = f;
-                _uploadFailed = false;
-              }),
-            ),
+            if (!isEditingOthers) ...[
+              const SectionHeader('Receipt'),
+              ReceiptPicker(
+                file: _receiptFile,
+                uploadProgress: _uploadProgress,
+                failed: _uploadFailed,
+                onPicked: (f) => setState(() {
+                  _receiptFile = f;
+                  _uploadFailed = false;
+                }),
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _submit,

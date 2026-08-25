@@ -107,11 +107,17 @@ service cloud.firestore {
       allow create: if isActive()
         && request.resource.data.createdByUserId == request.auth.uid;
 
-      allow update, delete: if isAdmin()
-        || (
+      allow delete: if isActive()
+        && resource.data.createdByUserId == request.auth.uid
+        && (monthOpen(resource.data.monthKey) || isAdmin());
+
+      allow update: if (
           isActive()
           && resource.data.createdByUserId == request.auth.uid
-          && monthOpen(resource.data.monthKey)
+          && (monthOpen(resource.data.monthKey) || isAdmin())
+        ) || (
+          isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'updatedByUserId', 'updatedByName'])
         );
     }
 

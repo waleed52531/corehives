@@ -34,20 +34,20 @@ class TransactionDetailScreen extends ConsumerWidget {
             error: (_, __) => const Center(child: Text('Could not check month status.')),
             data: (isClosed) {
               bool canEdit = false;
+              bool canDelete = false;
               if (user != null) {
                 if (isCashIn) {
                   final isCreator = t.createdByUserId == user.uid;
                   final isOwner = _isUpworkAccountOwner(user.name, t.upworkAccountName);
                   final allowedUser = isCreator || isOwner;
                   if (allowedUser) {
-                    if (isClosed) {
-                      canEdit = user.isAdmin;
-                    } else {
-                      canEdit = true;
-                    }
+                    final allowedAction = !isClosed || user.isAdmin;
+                    canEdit = allowedAction;
+                    canDelete = allowedAction;
                   }
                 } else {
                   canEdit = user.isAdmin || (t.createdByUserId == user.uid && !isClosed);
+                  canDelete = t.createdByUserId == user.uid && (!isClosed || user.isAdmin);
                 }
               }
 
@@ -103,29 +103,31 @@ class TransactionDetailScreen extends ConsumerWidget {
                         style: TextStyle(color: Colors.orange, fontSize: 12)),
                   ],
                   const SizedBox(height: 24),
-                  if (canEdit) ...[
+                  if (canEdit || canDelete) ...[
                     Row(
                       children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () {
-                              final route = isCashIn
-                                  ? '/add-cash-in?editId=${t.id}'
-                                  : '/add-expense?editId=${t.id}';
-                              context.push(route);
-                            },
-                            icon: const Icon(Icons.edit_outlined),
-                            label: const Text('Edit'),
+                        if (canEdit)
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                final route = isCashIn
+                                    ? '/add-cash-in?editId=${t.id}'
+                                    : '/add-expense?editId=${t.id}';
+                                context.push(route);
+                              },
+                              icon: const Icon(Icons.edit_outlined),
+                              label: const Text('Edit'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _confirmDelete(context, ref, t.id, user!.uid),
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                        if (canEdit && canDelete) const SizedBox(width: 12),
+                        if (canDelete)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _confirmDelete(context, ref, t.id, user!.uid),
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ],
