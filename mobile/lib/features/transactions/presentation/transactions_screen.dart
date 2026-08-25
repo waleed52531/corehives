@@ -149,9 +149,22 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     final t = filtered[i];
                     final isCashIn = t.type == TxType.cashIn;
                     final title = isCashIn ? (t.sourceType ?? 'Cash In') : (t.categoryName ?? 'Expense');
-                    final subtitle = isCashIn
-                        ? (t.upworkAccountName ?? t.projectName ?? t.clientName ?? '')
-                        : (t.subcategoryName ?? '');
+                    final parts = <String>[];
+                    if (isCashIn) {
+                      final acc = t.upworkAccountName ?? t.projectName ?? t.clientName;
+                      if (acc != null && acc.isNotEmpty) parts.add(acc);
+                    } else {
+                      if (t.subcategoryName != null && t.subcategoryName!.isNotEmpty) {
+                        parts.add(t.subcategoryName!);
+                      }
+                      final creator = _capitalizeWords(t.createdByName);
+                      if (creator.isNotEmpty) {
+                        parts.add('Created by $creator');
+                      }
+                    }
+                    parts.add(t.transactionDateKey);
+
+                    final subtitle = parts.join(' · ');
                     final descLine = t.description != null && t.description!.isNotEmpty
                         ? '\n${t.description}'
                         : '';
@@ -159,7 +172,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       leading: Icon(isCashIn ? Icons.arrow_downward : Icons.arrow_upward,
                           color: isCashIn ? Colors.green : Colors.red),
                       title: Text(title),
-                      subtitle: Text('$subtitle · ${t.transactionDateKey}$descLine'),
+                      subtitle: Text('$subtitle$descLine'),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -272,5 +285,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         );
       }
     }
+  }
+
+  String _capitalizeWords(String? s) {
+    if (s == null || s.isEmpty) return '';
+    return s.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
   }
 }
