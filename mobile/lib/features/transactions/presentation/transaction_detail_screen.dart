@@ -33,8 +33,23 @@ class TransactionDetailScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, __) => const Center(child: Text('Could not check month status.')),
             data: (isClosed) {
-              final canEdit = user != null &&
-                  (user.isAdmin || (t.createdByUserId == user.uid && !isClosed));
+              bool canEdit = false;
+              if (user != null) {
+                if (isCashIn) {
+                  final isCreator = t.createdByUserId == user.uid;
+                  final isOwner = _isUpworkAccountOwner(user.name, t.upworkAccountName);
+                  final allowedUser = isCreator || isOwner;
+                  if (allowedUser) {
+                    if (isClosed) {
+                      canEdit = user.isAdmin;
+                    } else {
+                      canEdit = true;
+                    }
+                  }
+                } else {
+                  canEdit = user.isAdmin || (t.createdByUserId == user.uid && !isClosed);
+                }
+              }
 
               return ListView(
                 padding: const EdgeInsets.all(16),
@@ -101,7 +116,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => _confirmDelete(context, ref, t.id, user.uid),
+                            onPressed: () => _confirmDelete(context, ref, t.id, user!.uid),
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                             label: const Text('Delete', style: TextStyle(color: Colors.red)),
                           ),
@@ -130,6 +145,16 @@ class TransactionDetailScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  bool _isUpworkAccountOwner(String name, String? upworkAccountName) {
+    if (upworkAccountName == null) return false;
+    final nameLower = name.toLowerCase();
+    final accLower = upworkAccountName.toLowerCase();
+    if (nameLower.contains('ishtiaq') && accLower.contains('alina')) return true;
+    if (nameLower.contains('zain') && (accLower.contains('abiha') || accLower.contains('zain'))) return true;
+    if (nameLower.contains('hanzalah') && accLower.contains('hanzalah')) return true;
+    return false;
   }
 
   String _capitalizeWords(String? s) {

@@ -147,6 +147,16 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
           _upworkAccount != null;
 
       if (widget.editId != null) {
+        if (_originalTx != null) {
+          final isCreator = _originalTx!.createdByUserId == user.uid;
+          final isOwner = _isUpworkAccountOwner(user.name, _originalTx!.upworkAccountName);
+          if (!isCreator && !isOwner) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('You are not authorized to edit this transaction.')),
+            );
+            return;
+          }
+        }
         await repo.update(docId, {
           'sourceType': _sourceType,
           'amountPaisa': amountPaisa,
@@ -401,5 +411,15 @@ class _AddCashInScreenState extends ConsumerState<AddCashInScreen> {
         ),
       ),
     );
+  }
+
+  bool _isUpworkAccountOwner(String name, String? upworkAccountName) {
+    if (upworkAccountName == null) return false;
+    final nameLower = name.toLowerCase();
+    final accLower = upworkAccountName.toLowerCase();
+    if (nameLower.contains('ishtiaq') && accLower.contains('alina')) return true;
+    if (nameLower.contains('zain') && (accLower.contains('abiha') || accLower.contains('zain'))) return true;
+    if (nameLower.contains('hanzalah') && accLower.contains('hanzalah')) return true;
+    return false;
   }
 }
