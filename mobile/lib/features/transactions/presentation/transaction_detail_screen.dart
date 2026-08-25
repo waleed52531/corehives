@@ -75,7 +75,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                   _row('Paid By', _capitalizeWords(t.paidByUserName)),
                   _row('Payment Method', _capitalizeWords(t.paymentMethod)),
                   _row('Transaction Date', t.transactionDateKey),
-                  _row('Status', _formatStatus(t)),
+                  _rowWidget('Status', _buildStatusBadge(t)),
                   _row('Created By', _capitalizeWords(t.createdByName)),
                   _row('Created At', _formatTs(t.createdAt)),
                   _row('Updated By', _capitalizeWords(t.updatedByName)),
@@ -110,7 +110,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                               context.push(route);
                             },
                             icon: const Icon(Icons.edit_outlined),
-                            label: const Text('Edit Transaction'),
+                            label: const Text('Edit'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -143,6 +143,60 @@ class TransactionDetailScreen extends ConsumerWidget {
           SizedBox(width: 130, child: Text(label, style: const TextStyle(color: Colors.grey))),
           Expanded(child: Text(value)),
         ],
+      ),
+    );
+  }
+
+  Widget _rowWidget(String label, Widget child) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(width: 130, child: Text(label, style: const TextStyle(color: Colors.grey))),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(Transaction t) {
+    final status = t.status.toLowerCase();
+    Color bgColor;
+    Color textColor;
+    String label = _formatStatus(t);
+
+    if (status == 'completed') {
+      bgColor = Colors.green.shade50;
+      textColor = Colors.green.shade800;
+    } else if (status == 'pending') {
+      bgColor = Colors.amber.shade50;
+      textColor = Colors.amber.shade800;
+    } else if (status == 'failed') {
+      bgColor = Colors.red.shade50;
+      textColor = Colors.red.shade800;
+    } else { // cancelled or other
+      bgColor = Colors.grey.shade100;
+      textColor = Colors.grey.shade700;
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: textColor.withOpacity(0.3)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
