@@ -174,3 +174,7 @@ final pendingAllCashInsProvider = StreamProvider.autoDispose<List<Transaction>>(
   return repo.pendingCashIns();
 });
 
+final transactionStreamProvider = StreamProvider.autoDispose.family<Transaction?, String>((ref, id) {
+  return ref.watch(transactionRepositoryProvider).streamById(id);
+});
+

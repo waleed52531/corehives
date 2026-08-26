@@ -24,16 +24,16 @@ class ReceiptUploadService {
     void Function(double progress)? onProgress,
   }) async {
     final compressed = await _compress(file);
-    final ext = p.extension(file.path).toLowerCase();
+    final ext = p.extension(compressed.path).toLowerCase();
     String contentType = 'image/jpeg';
     if (ext == '.png') {
       contentType = 'image/png';
-    } else if (ext == '.heic' || ext == '.heif') {
-      contentType = 'image/heic';
     } else if (ext == '.webp') {
       contentType = 'image/webp';
     } else if (ext == '.gif') {
       contentType = 'image/gif';
+    } else if (ext == '.heic' || ext == '.heif') {
+      contentType = 'image/heic';
     }
 
     final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}$ext';

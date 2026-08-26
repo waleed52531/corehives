@@ -14,16 +14,16 @@ class TransactionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.watch(transactionRepositoryProvider);
     final user = ref.watch(currentAppUserProvider).value;
+
+    final transactionAsync = ref.watch(transactionStreamProvider(transactionId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Transaction Detail')),
-      body: FutureBuilder<Transaction?>(
-        future: repo.byId(transactionId),
-        builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final t = snap.data;
+      body: transactionAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (t) {
           if (t == null) return const Center(child: Text('Transaction not found.'));
 
           final monthClosedAsync = ref.watch(monthlyClosingStatusProvider(t.monthKey));
@@ -87,15 +87,152 @@ class TransactionDetailScreen extends ConsumerWidget {
                   _row('Updated At', _formatTs(t.updatedAt)),
                   if (t.notes != null && t.notes!.isNotEmpty) _row('Notes', t.notes),
                   if (t.description != null && t.description!.isNotEmpty) _row('Description', t.description),
-                  if (t.attachmentUrl != null) ...[
+                  if (t.attachmentUrl != null && t.attachmentUrl!.isNotEmpty) ...[
                     const SectionHeader('Receipt'),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(t.attachmentUrl!, fit: BoxFit.cover),
+                    GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => Dialog.fullscreen(
+                            backgroundColor: Colors.black,
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: InteractiveViewer(
+                                    minScale: 0.5,
+                                    maxScale: 4.0,
+                                    child: Image.network(
+                                      t.attachmentUrl!,
+                                      fit: BoxFit.contain,
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return const Center(
+                                          child: CircularProgressIndicator(color: Colors.white),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Center(
+                                          child: Text(
+                                            'Failed to load receipt image',
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 40,
+                                  right: 20,
+                                  child: CircleAvatar(
+                                    backgroundColor: Colors.black45,
+                                    child: IconButton(
+                                      icon: const Icon(Icons.close, color: Colors.white),
+                                      onPressed: () => Navigator.pop(ctx),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 8, bottom: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            t.attachmentUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: 200,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Container(
+                                height: 200,
+                                color: Colors.grey.shade100,
+                                child: const Center(child: CircularProgressIndicator()),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 200,
+                                color: Colors.grey.shade100,
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.broken_image_outlined, color: Colors.grey, size: 40),
+                                    SizedBox(height: 8),
+                                    Text('Failed to load receipt image', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else if (t.attachmentStatus == AttachmentStatus.pending) ...[
+                    const SectionHeader('Receipt'),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Uploading receipt in background...',
+                              style: TextStyle(color: Colors.amber.shade900, fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ] else if (t.attachmentStatus == AttachmentStatus.failed) ...[
                     const SectionHeader('Receipt'),
-                    const Text('Upload failed — no receipt attached.', style: TextStyle(color: Colors.red)),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Receipt upload failed. Edit transaction to retry.',
+                              style: TextStyle(color: Colors.red.shade900, fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                   if (isClosed && !user!.isAdmin) ...[
                     const SizedBox(height: 16),

@@ -65,6 +65,13 @@ class TransactionRepository {
     return Transaction.fromMap(doc.id, doc.data()!);
   }
 
+  Stream<Transaction?> streamById(String txId) {
+    return _col.doc(txId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return Transaction.fromMap(doc.id, doc.data()!);
+    });
+  }
+
   Stream<List<Transaction>> activeSince(String dateKey) {
     return _col
         .where('deletedAt', isNull: true)
