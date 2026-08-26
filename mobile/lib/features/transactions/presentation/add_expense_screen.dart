@@ -262,6 +262,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         _originalTx != null &&
         _originalTx!.createdByUserId != user.uid;
 
+    final isHanzalahCompleted = _originalTx != null &&
+        _originalTx!.status.toLowerCase() == 'completed' &&
+        (_originalTx!.createdByUserId == 'Xcaos8UCMYQdOduG87OTHF7GzlT2' ||
+            _originalTx!.createdByName.toLowerCase().contains('hanzalah'));
+
+    final isFormDisabled = isEditingOthers || isHanzalahCompleted;
+
     final categoriesAsync = ref.watch(activeExpenseCategoriesProvider);
     final payeesAsync = ref.watch(activePayeesProvider);
 
@@ -272,7 +279,34 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            AmountField(controller: _amountCtrl, enabled: !isEditingOthers),
+            if (isHanzalahCompleted) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline, color: Colors.red.shade800),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Completed expenses created by Hanzalah cannot be modified.',
+                        style: TextStyle(
+                          color: Colors.red.shade900,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            AmountField(controller: _amountCtrl, enabled: !isFormDisabled),
             const SectionHeader('Category'),
             categoriesAsync.when(
               data: (cats) {
@@ -283,7 +317,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   value: _category,
                   decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
                   items: dropdownItems.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-                  onChanged: isEditingOthers
+                  onChanged: isFormDisabled
                       ? null
                       : (v) => setState(() {
                             _category = v;
@@ -319,7 +353,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           value: _subcategory,
                           decoration: const InputDecoration(labelText: 'Subcategory', border: OutlineInputBorder()),
                           items: dropdownItems.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
-                          onChanged: isEditingOthers
+                          onChanged: isFormDisabled
                               ? null
                               : (v) => setState(() {
                                     _subcategory = v;
@@ -349,13 +383,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                         items: dropdownItems
                                             .map((a) => DropdownMenuItem(value: a, child: Text(a.name)))
                                             .toList(),
-                                        onChanged: isEditingOthers
+                                        onChanged: isFormDisabled
                                             ? null
                                             : (a) => setState(() => _selectedPlatformAccount = a),
                                         validator: (a) => a == null ? 'Required' : null,
                                       ),
                                     ),
-                                    if (!isEditingOthers) ...[
+                                    if (!isFormDisabled) ...[
                                       const SizedBox(width: 8),
                                       IconButton(
                                         icon: const Icon(Icons.add_circle_outline),
@@ -383,8 +417,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               contentPadding: EdgeInsets.zero,
               title: const Text('Transaction Date'),
               subtitle: Text(MonthKey.dateKeyFromDate(_date)),
-              trailing: isEditingOthers ? null : const Icon(Icons.calendar_today, size: 18),
-              onTap: isEditingOthers
+              trailing: isFormDisabled ? null : const Icon(Icons.calendar_today, size: 18),
+              onTap: isFormDisabled
                   ? null
                   : () async {
                       final picked = await showDatePicker(
@@ -399,20 +433,20 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             const SectionHeader('Notes'),
             TextFormField(
               controller: _descCtrl,
-              enabled: !isEditingOthers,
+              enabled: !isFormDisabled,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
             ),
-            const SectionHeader('Optional Details'),
+            const SizedBox(height: 12),
             payeesAsync.when(
               data: (payees) => TextFormField(
                 controller: _payeeCtrl,
-                enabled: !isEditingOthers,
+                enabled: !isFormDisabled,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: 'Paid To / Payee (optional)',
                   border: const OutlineInputBorder(),
-                  suffixIcon: isEditingOthers || payees.isEmpty
+                  suffixIcon: isFormDisabled || payees.isEmpty
                       ? null
                       : PopupMenuButton<Payee>(
                           icon: const Icon(Icons.arrow_drop_down),
@@ -434,7 +468,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
               loading: () => TextFormField(
                 controller: _payeeCtrl,
-                enabled: !isEditingOthers,
+                enabled: !isFormDisabled,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Paid To / Payee (optional)',
@@ -450,7 +484,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
               error: (_, __) => TextFormField(
                 controller: _payeeCtrl,
-                enabled: !isEditingOthers,
+                enabled: !isFormDisabled,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Paid To / Payee (optional)',
@@ -463,7 +497,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               value: _paymentMethod,
               decoration: const InputDecoration(labelText: 'Payment Method (optional)', border: OutlineInputBorder()),
               items: _paymentMethods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-              onChanged: isEditingOthers ? null : (v) => setState(() => _paymentMethod = v),
+              onChanged: isFormDisabled ? null : (v) => setState(() => _paymentMethod = v),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -473,11 +507,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 DropdownMenuItem(value: 'completed', child: Text('Completed')),
                 DropdownMenuItem(value: 'pending', child: Text('Pending Reimbursement')),
               ],
-              onChanged: (v) {
-                if (v != null) setState(() => _status = v);
-              },
+              onChanged: isHanzalahCompleted
+                  ? null
+                  : (v) {
+                      if (v != null) setState(() => _status = v);
+                    },
             ),
-            if (!isEditingOthers) ...[
+            if (!isFormDisabled) ...[
               const SectionHeader('Receipt'),
               ReceiptPicker(
                 file: _receiptFile,
@@ -491,7 +527,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             ],
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: _saving ? null : _submit,
+              onPressed: (_saving || isHanzalahCompleted) ? null : _submit,
               style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               child: _saving
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
