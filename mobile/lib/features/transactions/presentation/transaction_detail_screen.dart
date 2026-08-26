@@ -46,8 +46,17 @@ class TransactionDetailScreen extends ConsumerWidget {
                     canDelete = allowedAction;
                   }
                 } else {
-                  canEdit = user.isAdmin || (t.createdByUserId == user.uid && !isClosed);
-                  canDelete = t.createdByUserId == user.uid && (!isClosed || user.isAdmin);
+                  final isHanzalahCompleted = t.status.toLowerCase() == 'completed' &&
+                      (t.createdByUserId == 'Xcaos8UCMYQdOduG87OTHF7GzlT2' ||
+                          t.createdByName.toLowerCase().contains('hanzalah'));
+
+                  if (isHanzalahCompleted) {
+                    canEdit = false;
+                    canDelete = false;
+                  } else {
+                    canEdit = user.isAdmin || (t.createdByUserId == user.uid && !isClosed);
+                    canDelete = t.createdByUserId == user.uid && (!isClosed || user.isAdmin);
+                  }
                 }
               }
 
