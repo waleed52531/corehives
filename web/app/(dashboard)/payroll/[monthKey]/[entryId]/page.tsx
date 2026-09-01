@@ -9,7 +9,7 @@ import { getDoc } from "firebase/firestore";
 import { paisaToDisplay, rupeesToPaisa } from "@/lib/utils/money";
 import type { PayrollEntry, PayrollPayment } from "@/lib/types/payroll";
 
-const PAYMENT_METHODS = ["Cash", "Bank Transfer", "JazzCash", "EasyPaisa", "Card", "Other"];
+const PAYMENT_METHODS = ["Cash", "Bank Transfer", "JazzCash", "EasyPaisa", "Card", "Advance Adjustment", "Other"];
 
 export default function PayrollEntryDetailPage() {
   const params = useParams<{ monthKey: string; entryId: string }>();

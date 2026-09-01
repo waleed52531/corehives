@@ -132,7 +132,7 @@ async function main() {
       "Sadqa", "Donation", "Charity", "Other",
     ]},
     { name: "Payroll & Compensation", order: 12, subcategories: [
-      "Salary", "Partner Compensation", "Contractor Payment", "Stipend",
+      "Salary", "Advance Salary", "Partner Compensation", "Contractor Payment", "Stipend",
       "Bonus", "Allowance", "Other Compensation",
     ]},
     { name: "Miscellaneous", order: 13, subcategories: ["Miscellaneous"] },

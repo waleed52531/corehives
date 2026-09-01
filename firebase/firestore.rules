@@ -35,14 +35,6 @@ service cloud.firestore {
       ).data.status == 'open';
     }
 
-    function isHanzalahCompletedExpense(res) {
-      return res.type == 'expense'
-        && res.status == 'completed'
-        && (res.createdByUserId == 'Xcaos8UCMYQdOduG87OTHF7GzlT2'
-            || res.createdByName == 'Hanzalah'
-            || res.createdByName == 'hanzalah');
-    }
-
     match /users/{uid} {
       allow read: if isActive();
       allow create: if isAdmin();
@@ -116,20 +108,12 @@ service cloud.firestore {
         && request.resource.data.createdByUserId == request.auth.uid;
 
       allow delete: if isActive()
-        && !isHanzalahCompletedExpense(resource.data)
         && resource.data.createdByUserId == request.auth.uid
         && (monthOpen(resource.data.monthKey) || isAdmin());
 
-      allow update: if !isHanzalahCompletedExpense(resource.data) && (
-        (
-          isActive()
-          && resource.data.createdByUserId == request.auth.uid
-          && (monthOpen(resource.data.monthKey) || isAdmin())
-        ) || (
-          isAdmin()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'updatedByUserId', 'updatedByName'])
-        )
-      );
+      allow update: if isActive()
+        && resource.data.createdByUserId == request.auth.uid
+        && (monthOpen(resource.data.monthKey) || isAdmin());
     }
 
     match /payroll_months/{monthKey} {

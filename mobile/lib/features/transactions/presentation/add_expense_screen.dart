@@ -10,6 +10,8 @@ import '../../config/presentation/config_providers.dart';
 import '../../config/domain/config_models.dart';
 import '../domain/transaction_model.dart';
 import '../presentation/transaction_providers.dart';
+import '../../employees/domain/employee_model.dart';
+import '../../employees/presentation/employee_providers.dart';
 import '../../../shared/services/notification_service.dart';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
@@ -78,6 +80,25 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             _selectedPlatformAccount = UpworkAccount(id: tx.upworkAccountId!, name: tx.upworkAccountName!, platform: 'upwork', active: true);
           }
         }
+
+        // Populate Employee (for Advance Salary)
+        if (tx.employeeId != null) {
+          final employees = ref.read(allEmployeesProvider).value ?? [];
+          try {
+            _selectedEmployee = employees.firstWhere((e) => e.id == tx.employeeId);
+          } catch (_) {
+            if (tx.employeeName != null) {
+              _selectedEmployee = Employee(
+                id: tx.employeeId!,
+                employeeCode: '',
+                fullName: tx.employeeName!,
+                jobTitle: '',
+                employmentType: 'Full-Time',
+                employmentStatus: 'Active',
+              );
+            }
+          }
+        }
       });
     }
   }
@@ -102,6 +123,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   bool _saving = false;
 
   UpworkAccount? _selectedPlatformAccount;
+  Employee? _selectedEmployee;
 
   static const _paymentMethods = ['Cash', 'Bank Transfer', 'JazzCash', 'EasyPaisa', 'Card', 'Other'];
 
@@ -129,12 +151,18 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     final dateKey = MonthKey.dateKeyFromDate(_date);
     final monthKey = MonthKey.fromDate(_date);
 
+    final subNameLower = _subcategory?.name.toLowerCase() ?? '';
+    final isAdvanceSalary = subNameLower.contains('advance');
+
     final payees = ref.read(activePayeesProvider).value ?? [];
     final enteredPayeeName = _payeeCtrl.text.trim();
     String? payeeId;
     String? payeeName;
 
-    if (enteredPayeeName.isNotEmpty) {
+    if (isAdvanceSalary && _selectedEmployee != null) {
+      payeeId = _selectedEmployee!.id;
+      payeeName = _selectedEmployee!.fullName;
+    } else if (enteredPayeeName.isNotEmpty) {
       payeeName = enteredPayeeName;
       try {
         final matchingPayee = payees.firstWhere(
@@ -147,6 +175,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       }
     }
 
+    final employeeId = isAdvanceSalary ? (_selectedEmployee?.id ?? payeeId) : null;
+    final employeeName = isAdvanceSalary ? (_selectedEmployee?.fullName ?? payeeName) : null;
+
     final tx = Transaction(
       id: docId,
       type: TxType.expense,
@@ -157,6 +188,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       subcategoryName: _subcategory!.name,
       payeeId: payeeId,
       payeeName: payeeName,
+      employeeId: employeeId,
+      employeeName: employeeName,
       projectId: null,
       projectName: null,
       upworkAccountId: _selectedPlatformAccount?.id,
@@ -186,6 +219,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           'subcategoryName': _subcategory!.name,
           'payeeId': payeeId,
           'payeeName': payeeName,
+          'employeeId': employeeId,
+          'employeeName': employeeName,
           'upworkAccountId': _selectedPlatformAccount?.id,
           'upworkAccountName': _selectedPlatformAccount?.name,
           'paymentMethod': _paymentMethod,
@@ -262,12 +297,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         _originalTx != null &&
         _originalTx!.createdByUserId != user.uid;
 
-    final isHanzalahCompleted = _originalTx != null &&
-        _originalTx!.status.toLowerCase() == 'completed' &&
-        (_originalTx!.createdByUserId == 'Xcaos8UCMYQdOduG87OTHF7GzlT2' ||
-            _originalTx!.createdByName.toLowerCase().contains('hanzalah'));
-
-    final isFormDisabled = isEditingOthers || isHanzalahCompleted;
+    final isFormDisabled = isEditingOthers;
 
     final categoriesAsync = ref.watch(activeExpenseCategoriesProvider);
     final payeesAsync = ref.watch(activePayeesProvider);
@@ -279,24 +309,24 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (isHanzalahCompleted) ...[
+            if (isEditingOthers) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: Colors.amber.shade300),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.lock_outline, color: Colors.red.shade800),
+                    Icon(Icons.lock_outline, color: Colors.amber.shade900),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Completed expenses created by Hanzalah cannot be modified.',
+                        'This expense was created by ${_originalTx?.createdByName ?? 'another user'}. Only the creator can modify it.',
                         style: TextStyle(
-                          color: Colors.red.shade900,
+                          color: Colors.amber.shade900,
                           fontWeight: FontWeight.w500,
                           fontSize: 13,
                         ),
@@ -314,9 +344,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                     ? [...cats, _category!]
                     : cats;
                 return DropdownButtonFormField<ExpenseCategory>(
+                  isExpanded: true,
                   value: _category,
                   decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                  items: dropdownItems.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                  items: dropdownItems.map((c) => DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: isFormDisabled
                       ? null
                       : (v) => setState(() {
@@ -350,9 +381,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         DropdownButtonFormField<ExpenseSubcategory>(
+                          isExpanded: true,
                           value: _subcategory,
                           decoration: const InputDecoration(labelText: 'Subcategory', border: OutlineInputBorder()),
-                          items: dropdownItems.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
+                          items: dropdownItems.map((s) => DropdownMenuItem(value: s, child: Text(s.name, overflow: TextOverflow.ellipsis))).toList(),
                           onChanged: isFormDisabled
                               ? null
                               : (v) => setState(() {
@@ -443,6 +475,66 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 final subNameLower = _subcategory?.name.toLowerCase() ?? '';
                 final isDeveloperPayment = subNameLower.contains('developer');
                 final isDesignerPayment = subNameLower.contains('design');
+                final isAdvanceSalary = subNameLower.contains('advance');
+
+                if (isAdvanceSalary) {
+                  return Consumer(
+                    builder: (context, ref, _) {
+                      final employeesAsync = ref.watch(allEmployeesProvider);
+                      return employeesAsync.when(
+                        data: (employees) {
+                          final activeEmployees = employees
+                              .where((e) => e.employmentStatus.toLowerCase() == 'active')
+                              .toList();
+
+                          final dropdownItems = _selectedEmployee != null &&
+                                  !activeEmployees.any((e) => e.id == _selectedEmployee!.id)
+                              ? [...activeEmployees, _selectedEmployee!]
+                              : activeEmployees;
+
+                          return DropdownButtonFormField<Employee>(
+                            isExpanded: true,
+                            value: _selectedEmployee != null
+                                ? dropdownItems.firstWhere(
+                                    (e) => e.id == _selectedEmployee!.id,
+                                    orElse: () => _selectedEmployee!,
+                                  )
+                                : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Select Employee *',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.badge_outlined),
+                            ),
+                            items: dropdownItems.map((e) {
+                              final subtitle = e.jobTitle.isNotEmpty ? e.jobTitle : e.employeeCode;
+                              return DropdownMenuItem<Employee>(
+                                value: e,
+                                child: Text(
+                                  subtitle.isNotEmpty ? '${e.fullName} ($subtitle)' : e.fullName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: isFormDisabled
+                                ? null
+                                : (v) {
+                                    setState(() {
+                                      _selectedEmployee = v;
+                                      if (v != null) {
+                                        _payeeCtrl.text = v.fullName;
+                                      }
+                                    });
+                                  },
+                            validator: (v) => v == null ? 'Please select an employee' : null,
+                          );
+                        },
+                        loading: () => const LinearProgressIndicator(),
+                        error: (err, _) => Text('Could not load employees: $err'),
+                      );
+                    },
+                  );
+                }
 
                 String payeeLabel;
                 String? payeeHint;
@@ -544,7 +636,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 DropdownMenuItem(value: 'completed', child: Text('Completed')),
                 DropdownMenuItem(value: 'pending', child: Text('Pending Reimbursement')),
               ],
-              onChanged: isHanzalahCompleted
+              onChanged: isFormDisabled
                   ? null
                   : (v) {
                       if (v != null) setState(() => _status = v);
@@ -564,7 +656,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             ],
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: (_saving || isHanzalahCompleted) ? null : _submit,
+              onPressed: (_saving || isFormDisabled) ? null : _submit,
               style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               child: _saving
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))

@@ -272,7 +272,7 @@ class PayrollEntryDetailScreen extends ConsumerWidget {
               DropdownButtonFormField<String>(
                 value: paymentMethod,
                 decoration: const InputDecoration(labelText: 'Payment Method', border: OutlineInputBorder()),
-                items: ['Cash', 'Bank Transfer', 'JazzCash', 'EasyPaisa', 'Other']
+                items: ['Cash', 'Bank Transfer', 'JazzCash', 'EasyPaisa', 'Advance Adjustment', 'Other']
                     .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                     .toList(),
                 onChanged: (v) => setSheetState(() => paymentMethod = v),
