@@ -438,59 +438,96 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
-            payeesAsync.when(
-              data: (payees) => TextFormField(
-                controller: _payeeCtrl,
-                enabled: !isFormDisabled,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Paid To / Payee (optional)',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: isFormDisabled || payees.isEmpty
-                      ? null
-                      : PopupMenuButton<Payee>(
-                          icon: const Icon(Icons.arrow_drop_down),
-                          onSelected: (Payee value) {
-                            setState(() {
-                              _payeeCtrl.text = value.name;
-                            });
-                          },
-                          itemBuilder: (BuildContext context) {
-                            return payees.map((Payee p) {
-                              return PopupMenuItem<Payee>(
-                                value: p,
-                                child: Text(p.name),
-                              );
-                            }).toList();
-                          },
-                        ),
-                ),
-              ),
-              loading: () => TextFormField(
-                controller: _payeeCtrl,
-                enabled: !isFormDisabled,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Paid To / Payee (optional)',
-                  border: OutlineInputBorder(),
-                  suffixIcon: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
+            Builder(
+              builder: (context) {
+                final subNameLower = _subcategory?.name.toLowerCase() ?? '';
+                final isDeveloperPayment = subNameLower.contains('developer');
+                final isDesignerPayment = subNameLower.contains('design');
+
+                String payeeLabel;
+                String? payeeHint;
+                if (isDeveloperPayment) {
+                  payeeLabel = 'Developer Name *';
+                  payeeHint = 'Enter developer name';
+                } else if (isDesignerPayment) {
+                  payeeLabel = 'Designer Name *';
+                  payeeHint = 'Enter designer name';
+                } else {
+                  payeeLabel = 'Paid To / Payee (optional)';
+                  payeeHint = null;
+                }
+
+                String? payeeValidator(String? v) {
+                  if (isDeveloperPayment && (v == null || v.trim().isEmpty)) {
+                    return 'Developer name is required';
+                  }
+                  if (isDesignerPayment && (v == null || v.trim().isEmpty)) {
+                    return 'Designer name is required';
+                  }
+                  return null;
+                }
+
+                return payeesAsync.when(
+                  data: (payees) => TextFormField(
+                    controller: _payeeCtrl,
+                    enabled: !isFormDisabled,
+                    textCapitalization: TextCapitalization.words,
+                    validator: payeeValidator,
+                    decoration: InputDecoration(
+                      labelText: payeeLabel,
+                      hintText: payeeHint,
+                      border: const OutlineInputBorder(),
+                      suffixIcon: isFormDisabled || payees.isEmpty
+                          ? null
+                          : PopupMenuButton<Payee>(
+                              icon: const Icon(Icons.arrow_drop_down),
+                              onSelected: (Payee value) {
+                                setState(() {
+                                  _payeeCtrl.text = value.name;
+                                });
+                              },
+                              itemBuilder: (BuildContext context) {
+                                return payees.map((Payee p) {
+                                  return PopupMenuItem<Payee>(
+                                    value: p,
+                                    child: Text(p.name),
+                                  );
+                                }).toList();
+                              },
+                            ),
                     ),
                   ),
-                ),
-              ),
-              error: (_, __) => TextFormField(
-                controller: _payeeCtrl,
-                enabled: !isFormDisabled,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Paid To / Payee (optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
+                  loading: () => TextFormField(
+                    controller: _payeeCtrl,
+                    enabled: !isFormDisabled,
+                    textCapitalization: TextCapitalization.words,
+                    validator: payeeValidator,
+                    decoration: InputDecoration(
+                      labelText: payeeLabel,
+                      hintText: payeeHint,
+                      border: const OutlineInputBorder(),
+                      suffixIcon: const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  error: (_, __) => TextFormField(
+                    controller: _payeeCtrl,
+                    enabled: !isFormDisabled,
+                    textCapitalization: TextCapitalization.words,
+                    validator: payeeValidator,
+                    decoration: InputDecoration(
+                      labelText: payeeLabel,
+                      hintText: payeeHint,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:intl/intl.dart';
 import '../domain/employee_model.dart';
 
 class EmployeeRepository {
@@ -92,12 +94,62 @@ class EmployeeRepository {
   }
 
   Future<void> saveCompensation(EmployeeCompensation comp) async {
+    final effectiveFrom = comp.effectiveFrom ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Try Cloud Function first (which runs with admin privileges)
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('updateEmployeeCompensation');
+      await callable.call({
+        'employeeId': comp.employeeId,
+        'baseSalaryPaisa': comp.baseSalaryPaisa,
+        'compensationType': comp.compensationType,
+        'defaultPaymentMethod': comp.defaultPaymentMethod,
+        'effectiveFrom': effectiveFrom,
+      });
+      return;
+    } catch (_) {
+      // Fallback to direct client write
+    }
+
     await _db.collection('employee_compensation').doc(comp.employeeId).set({
+      'employeeId': comp.employeeId,
       'baseSalaryPaisa': comp.baseSalaryPaisa,
       'currency': comp.currency,
       'compensationType': comp.compensationType,
       'defaultPaymentMethod': comp.defaultPaymentMethod,
-      'effectiveFrom': comp.effectiveFrom,
+      'effectiveFrom': effectiveFrom,
+      'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    // Also auto-sync open current month's payroll entry if it already exists
+    final now = DateTime.now();
+    final currentMonthKey = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+    final entryId = '${currentMonthKey}_${comp.employeeId}';
+
+    final closingSnap = await _db.collection('monthly_closings').doc(currentMonthKey).get();
+    if (closingSnap.exists && closingSnap.data()?['status'] == 'closed') {
+      return; // Do not modify closed month
+    }
+
+    final entryRef = _db.collection('payroll_entries').doc(entryId);
+    final entrySnap = await entryRef.get();
+    if (entrySnap.exists) {
+      final entryData = entrySnap.data()!;
+      final totalPaid = (entryData['totalPaidAmountPaisa'] ?? 0) as int;
+      final newRemaining = comp.baseSalaryPaisa - totalPaid;
+      final newStatus = totalPaid <= 0
+          ? 'Pending'
+          : totalPaid >= comp.baseSalaryPaisa
+              ? 'Paid'
+              : 'Partial';
+
+      await entryRef.update({
+        'expectedAmountPaisa': comp.baseSalaryPaisa,
+        'remainingAmountPaisa': newRemaining,
+        'status': newStatus,
+        'compensationType': comp.compensationType,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
   }
 }

@@ -66,12 +66,12 @@ service cloud.firestore {
 
     match /employee_compensation/{id} {
       allow read: if hasPerm('viewPayroll');
-      allow write: if false;
+      allow write: if hasPerm('manageEmployees') || hasPerm('managePayroll');
     }
 
     match /employee_compensation_history/{id} {
       allow read: if hasPerm('viewPayroll');
-      allow write: if false;
+      allow write: if hasPerm('manageEmployees') || hasPerm('managePayroll');
     }
 
     match /departments/{id} {

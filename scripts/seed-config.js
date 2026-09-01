@@ -96,7 +96,7 @@ async function main() {
       "Cleaning / Fumigation", "Gardener", "Office Supplies", "Kitchen / Pantry", "Other Office Expense",
     ]},
     { name: "Development & Project Costs", order: 2, subcategories: [
-      "Developer Payment", "Designer Payment", "UI/UX", "Project Contractor",
+      "Developer Payment", "Designer Payment", "Project Contractor",
       "API / Credits", "Project Expense", "Other Development Cost",
     ]},
     { name: "Software & Subscriptions", order: 3, subcategories: [

@@ -49,11 +49,28 @@ export default function TransactionDetailPage() {
   async function softDelete() {
     if (!tx) return;
     if (!confirm("Delete this transaction? It will be removed from reports but not permanently erased.")) return;
-    await updateDoc(doc(db, "transactions", tx.id), {
-      deletedAt: serverTimestamp(),
-      deletedByUserId: auth.currentUser?.uid ?? null,
-      updatedAt: serverTimestamp(),
-    });
+    
+    if (tx.id.startsWith("payroll_payment_")) {
+      const paymentId = tx.id.replace("payroll_payment_", "");
+      try {
+        const { deletePayrollPayment } = await import("@/lib/firebase/functions");
+        await deletePayrollPayment(paymentId);
+      } catch (err) {
+        console.error("Failed to delete linked payroll payment:", err);
+        // Fallback to direct soft delete if function is unavailable
+        await updateDoc(doc(db, "transactions", tx.id), {
+          deletedAt: serverTimestamp(),
+          deletedByUserId: auth.currentUser?.uid ?? null,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } else {
+      await updateDoc(doc(db, "transactions", tx.id), {
+        deletedAt: serverTimestamp(),
+        deletedByUserId: auth.currentUser?.uid ?? null,
+        updatedAt: serverTimestamp(),
+      });
+    }
     router.push("/transactions");
   }
 

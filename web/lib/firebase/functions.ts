@@ -25,6 +25,18 @@ export async function recordPayrollPayment(input: {
   return res.data as { status: string; linkedTransactionId: string };
 }
 
+export async function deletePayrollPayment(paymentId: string) {
+  const fn = httpsCallable(functions, "deletePayrollPayment");
+  const res = await fn({ paymentId });
+  return res.data as { status: string; paymentId: string; newTotalPaid: number; newRemaining: number; newStatus: string };
+}
+
+export async function updatePayrollEntryExpected(entryId: string, expectedAmountPaisa: number) {
+  const fn = httpsCallable(functions, "updatePayrollEntryExpected");
+  const res = await fn({ entryId, expectedAmountPaisa });
+  return res.data as { status: string; entryId: string; expectedAmountPaisa: number; remainingAmountPaisa: number };
+}
+
 export async function closeMonth(monthKey: string) {
   const fn = httpsCallable(functions, "closeMonth");
   const res = await fn({ monthKey });

@@ -367,6 +367,8 @@ class _CompensationTab extends ConsumerWidget {
         ? (DateTime.tryParse(currentComp!.effectiveFrom!) ?? DateTime.now())
         : DateTime.now();
 
+    bool saving = false;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -446,30 +448,46 @@ class _CompensationTab extends ConsumerWidget {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: saving ? null : () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    if (formKey.currentState!.validate()) {
-                      final amountVal = int.parse(amountCtrl.text.trim());
-                      final newComp = EmployeeCompensation(
-                        employeeId: employeeId,
-                        baseSalaryPaisa: amountVal * 100,
-                        currency: 'PKR',
-                        compensationType: compType,
-                        defaultPaymentMethod: payMethod,
-                        effectiveFrom: DateFormat('yyyy-MM-dd').format(effectiveDate),
-                      );
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            final amountVal = int.parse(amountCtrl.text.trim());
+                            final newComp = EmployeeCompensation(
+                              employeeId: employeeId,
+                              baseSalaryPaisa: amountVal * 100,
+                              currency: 'PKR',
+                              compensationType: compType,
+                              defaultPaymentMethod: payMethod,
+                              effectiveFrom: DateFormat('yyyy-MM-dd').format(effectiveDate),
+                            );
 
-                      await ref.read(employeeRepositoryProvider).saveCompensation(newComp);
-                      
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                      }
-                    }
-                  },
-                  child: const Text('Save'),
+                            setDialogState(() => saving = true);
+                            try {
+                              await ref.read(employeeRepositoryProvider).saveCompensation(newComp);
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Compensation updated successfully')),
+                                );
+                              }
+                            } catch (e) {
+                              setDialogState(() => saving = false);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to update salary: $e')),
+                                );
+                              }
+                            }
+                          }
+                        },
+                  child: saving
+                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save'),
                 ),
               ],
             );

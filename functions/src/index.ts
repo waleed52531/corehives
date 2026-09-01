@@ -259,6 +259,113 @@ export const recordPayrollPayment = onCall(async (req) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* deletePayrollPayment                                                */
+/* ------------------------------------------------------------------ */
+export const deletePayrollPayment = onCall(async (req) => {
+  const user = await requirePermission(req.auth?.uid, "managePayroll");
+  const { paymentId } = req.data as { paymentId: string };
+  if (!paymentId) {
+    throw new HttpsError("invalid-argument", "paymentId required.");
+  }
+
+  return await db.runTransaction(async (tx) => {
+    const paymentRef = db.collection("payroll_payments").doc(paymentId);
+    const paymentSnap = await tx.get(paymentRef);
+    if (!paymentSnap.exists) {
+      throw new HttpsError("not-found", "Payroll payment not found.");
+    }
+    const payment = paymentSnap.data()!;
+    const payrollEntryId = payment.payrollEntryId;
+
+    const entryRef = db.collection("payroll_entries").doc(payrollEntryId);
+    const entrySnap = await tx.get(entryRef);
+    if (!entrySnap.exists) {
+      throw new HttpsError("not-found", "Payroll entry not found.");
+    }
+    const entry = entrySnap.data()!;
+
+    // Check if month is closed
+    const monthKey = entry.monthKey;
+    const closingSnap = await tx.get(db.collection("monthly_closings").doc(monthKey));
+    if (closingSnap.exists && closingSnap.data()?.status === "closed") {
+      throw new HttpsError("failed-precondition", `Month ${monthKey} is closed. Reopen it before modifying payments.`);
+    }
+
+    const newTotalPaid = Math.max(0, (entry.totalPaidAmountPaisa ?? 0) - payment.amountPaisa);
+    const newRemaining = entry.expectedAmountPaisa - newTotalPaid;
+    const newStatus = newTotalPaid <= 0 ? "Pending" : newTotalPaid >= entry.expectedAmountPaisa ? "Paid" : "Partial";
+
+    // 1. Delete payment doc
+    tx.delete(paymentRef);
+
+    // 2. Recompute entry
+    tx.update(entryRef, {
+      totalPaidAmountPaisa: newTotalPaid,
+      remainingAmountPaisa: newRemaining,
+      status: newStatus,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // 3. Soft-delete linked transaction if exists
+    const linkedTxId = payment.linkedTransactionId || `payroll_payment_${paymentId}`;
+    const txRef = db.collection("transactions").doc(linkedTxId);
+    const txSnap = await tx.get(txRef);
+    if (txSnap.exists) {
+      tx.update(txRef, {
+        deletedAt: FieldValue.serverTimestamp(),
+        deletedByUserId: user.uid,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    return { status: "deleted", paymentId, newTotalPaid, newRemaining, newStatus };
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* updatePayrollEntryExpected                                          */
+/* ------------------------------------------------------------------ */
+export const updatePayrollEntryExpected = onCall(async (req) => {
+  const user = await requirePermission(req.auth?.uid, "managePayroll");
+  const { entryId, expectedAmountPaisa } = req.data as {
+    entryId: string;
+    expectedAmountPaisa: number;
+  };
+  if (!entryId || !expectedAmountPaisa || expectedAmountPaisa < 0) {
+    throw new HttpsError("invalid-argument", "entryId and valid expectedAmountPaisa required.");
+  }
+
+  return await db.runTransaction(async (tx) => {
+    const entryRef = db.collection("payroll_entries").doc(entryId);
+    const entrySnap = await tx.get(entryRef);
+    if (!entrySnap.exists) {
+      throw new HttpsError("not-found", "Payroll entry not found.");
+    }
+    const entry = entrySnap.data()!;
+
+    // Check if month is closed
+    const monthKey = entry.monthKey;
+    const closingSnap = await tx.get(db.collection("monthly_closings").doc(monthKey));
+    if (closingSnap.exists && closingSnap.data()?.status === "closed") {
+      throw new HttpsError("failed-precondition", `Month ${monthKey} is closed. Reopen it before modifying entries.`);
+    }
+
+    const totalPaid = entry.totalPaidAmountPaisa ?? 0;
+    const newRemaining = expectedAmountPaisa - totalPaid;
+    const newStatus = totalPaid <= 0 ? "Pending" : totalPaid >= expectedAmountPaisa ? "Paid" : "Partial";
+
+    tx.update(entryRef, {
+      expectedAmountPaisa,
+      remainingAmountPaisa: newRemaining,
+      status: newStatus,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { status: "updated", entryId, expectedAmountPaisa, remainingAmountPaisa: newRemaining, statusName: newStatus };
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* closeMonth / reopenMonth                                            */
 /* ------------------------------------------------------------------ */
 export const closeMonth = onCall(async (req) => {
@@ -353,6 +460,29 @@ export const updateEmployeeCompensation = onCall(async (req) => {
       updatedAt: FieldValue.serverTimestamp(),
       updatedBy: user.uid,
     });
+
+    // Also auto-sync open current month's payroll entry if it exists
+    const currentMonthKey = effectiveFrom.slice(0, 7);
+    const closingSnap = await tx.get(db.collection("monthly_closings").doc(currentMonthKey));
+    if (!closingSnap.exists || closingSnap.data()?.status !== "closed") {
+      const entryId = `${currentMonthKey}_${employeeId}`;
+      const entryRef = db.collection("payroll_entries").doc(entryId);
+      const entrySnap = await tx.get(entryRef);
+      if (entrySnap.exists) {
+        const entryData = entrySnap.data()!;
+        const totalPaid = (entryData.totalPaidAmountPaisa ?? 0) as number;
+        const newRemaining = baseSalaryPaisa - totalPaid;
+        const newStatus = totalPaid <= 0 ? "Pending" : totalPaid >= baseSalaryPaisa ? "Paid" : "Partial";
+
+        tx.update(entryRef, {
+          expectedAmountPaisa: baseSalaryPaisa,
+          remainingAmountPaisa: newRemaining,
+          status: newStatus,
+          compensationType,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
   });
 
   return { status: "updated", employeeId };

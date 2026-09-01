@@ -39,11 +39,60 @@ class TransactionRepository {
       });
 
   /// Soft delete — never hard-delete financial history.
-  Future<void> softDelete(String txId, String deletedByUserId) => _col.doc(txId).update({
+  Future<void> softDelete(String txId, String deletedByUserId) async {
+    if (txId.startsWith('payroll_payment_')) {
+      final paymentId = txId.replaceFirst('payroll_payment_', '');
+      await _db.runTransaction((transaction) async {
+        final paymentRef = _db.collection('payroll_payments').doc(paymentId);
+        final paymentSnap = await transaction.get(paymentRef);
+
+        if (paymentSnap.exists) {
+          final payment = paymentSnap.data()!;
+          final payrollEntryId = payment['payrollEntryId'] as String?;
+          final amountPaisa = (payment['amountPaisa'] as num?)?.toInt() ?? 0;
+
+          if (payrollEntryId != null) {
+            final entryRef = _db.collection('payroll_entries').doc(payrollEntryId);
+            final entrySnap = await transaction.get(entryRef);
+
+            if (entrySnap.exists) {
+              final entry = entrySnap.data()!;
+              final currentPaid = (entry['totalPaidAmountPaisa'] ?? 0) as int;
+              final expected = (entry['expectedAmountPaisa'] ?? 0) as int;
+              final newTotalPaid = (currentPaid - amountPaisa) < 0 ? 0 : (currentPaid - amountPaisa);
+              final newRemaining = expected - newTotalPaid;
+              final newStatus = newTotalPaid <= 0
+                  ? 'Pending'
+                  : newTotalPaid >= expected
+                      ? 'Paid'
+                      : 'Partial';
+
+              transaction.update(entryRef, {
+                'totalPaidAmountPaisa': newTotalPaid,
+                'remainingAmountPaisa': newRemaining,
+                'status': newStatus,
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+            }
+          }
+          transaction.delete(paymentRef);
+        }
+
+        final txRef = _col.doc(txId);
+        transaction.update(txRef, {
+          'deletedAt': FieldValue.serverTimestamp(),
+          'deletedByUserId': deletedByUserId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } else {
+      await _col.doc(txId).update({
         'deletedAt': FieldValue.serverTimestamp(),
         'deletedByUserId': deletedByUserId,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+    }
+  }
 
   Stream<List<Transaction>> forMonth(String monthKey, {int limit = 200}) {
     return _col

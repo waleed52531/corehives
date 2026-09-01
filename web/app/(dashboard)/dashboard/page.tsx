@@ -48,9 +48,9 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <SummaryCard label="Cash In" paisa={totalCashIn} tone="cashIn" />
-            <SummaryCard label="Total Cash Out" paisa={totalExpense} tone="cashOut" />
-            <SummaryCard label="Payroll Paid" paisa={payrollPaid} tone="cashOut" />
+            <SummaryCard label="Cash In" paisa={totalCashIn} tone="cashIn" href={`/transactions?filter=cashIn`} />
+            <SummaryCard label="Total Cash Out" paisa={totalExpense} tone="cashOut" href={`/transactions?filter=expense`} />
+            <SummaryCard label="Payroll Paid" paisa={payrollPaid} tone="cashOut" href={`/payroll/${monthKey}`} />
             <SummaryCard label="Net Cash Flow" paisa={net} tone={net >= 0 ? "cashIn" : "cashOut"} />
           </div>
 

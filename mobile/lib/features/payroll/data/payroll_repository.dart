@@ -206,5 +206,103 @@ class PayrollRepository {
     });
   }
 
+  Future<void> deletePayrollPayment(String paymentId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception("Unauthenticated");
+
+    await _db.runTransaction((transaction) async {
+      final paymentRef = _db.collection('payroll_payments').doc(paymentId);
+      final paymentSnap = await transaction.get(paymentRef);
+      if (!paymentSnap.exists) {
+        throw Exception("Payment not found");
+      }
+      final payment = paymentSnap.data()!;
+      final payrollEntryId = payment['payrollEntryId'] as String;
+      final amountPaisa = (payment['amountPaisa'] as num).toInt();
+
+      final entryRef = _db.collection('payroll_entries').doc(payrollEntryId);
+      final entrySnap = await transaction.get(entryRef);
+      if (!entrySnap.exists) {
+        throw Exception("Payroll entry not found");
+      }
+      final entry = entrySnap.data()!;
+      final monthKey = entry['monthKey'] as String;
+
+      // Check if month is closed
+      final closingSnap = await transaction.get(_db.collection('monthly_closings').doc(monthKey));
+      if (closingSnap.exists && closingSnap.data()?['status'] == 'closed') {
+        throw Exception("Month $monthKey is closed. Reopen it before modifying payments.");
+      }
+
+      final currentPaid = (entry['totalPaidAmountPaisa'] ?? 0) as int;
+      final expected = (entry['expectedAmountPaisa'] ?? 0) as int;
+      final newTotalPaid = (currentPaid - amountPaisa) < 0 ? 0 : (currentPaid - amountPaisa);
+      final newRemaining = expected - newTotalPaid;
+      final newStatus = newTotalPaid <= 0
+          ? 'Pending'
+          : newTotalPaid >= expected
+              ? 'Paid'
+              : 'Partial';
+
+      // 1. Delete payment
+      transaction.delete(paymentRef);
+
+      // 2. Update entry
+      transaction.update(entryRef, {
+        'totalPaidAmountPaisa': newTotalPaid,
+        'remainingAmountPaisa': newRemaining,
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Soft delete linked transaction
+      final linkedTxId = payment['linkedTransactionId'] ?? 'payroll_payment_$paymentId';
+      final txRef = _db.collection('transactions').doc(linkedTxId);
+      final txSnap = await transaction.get(txRef);
+      if (txSnap.exists) {
+        transaction.update(txRef, {
+          'deletedAt': FieldValue.serverTimestamp(),
+          'deletedByUserId': uid,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+  }
+
+  Future<void> updateExpectedAmount(String entryId, int expectedAmountPaisa) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception("Unauthenticated");
+
+    await _db.runTransaction((transaction) async {
+      final entryRef = _db.collection('payroll_entries').doc(entryId);
+      final entrySnap = await transaction.get(entryRef);
+      if (!entrySnap.exists) {
+        throw Exception("Payroll entry not found");
+      }
+      final entry = entrySnap.data()!;
+      final monthKey = entry['monthKey'] as String;
+
+      final closingSnap = await transaction.get(_db.collection('monthly_closings').doc(monthKey));
+      if (closingSnap.exists && closingSnap.data()?['status'] == 'closed') {
+        throw Exception("Month $monthKey is closed. Reopen it before modifying entries.");
+      }
+
+      final totalPaid = (entry['totalPaidAmountPaisa'] ?? 0) as int;
+      final newRemaining = expectedAmountPaisa - totalPaid;
+      final newStatus = totalPaid <= 0
+          ? 'Pending'
+          : totalPaid >= expectedAmountPaisa
+              ? 'Paid'
+              : 'Partial';
+
+      transaction.update(entryRef, {
+        'expectedAmountPaisa': expectedAmountPaisa,
+        'remainingAmountPaisa': newRemaining,
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
   String newPaymentId() => _db.collection('payroll_payments').doc().id;
 }

@@ -5,6 +5,8 @@ import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
 import '../../../shared/models/month_key.dart';
 import 'package:intl/intl.dart';
+import '../../employees/presentation/employee_providers.dart';
+import '../domain/payroll_models.dart';
 import 'payroll_providers.dart';
 
 class PayrollEntryDetailScreen extends ConsumerWidget {
@@ -20,7 +22,22 @@ class PayrollEntryDetailScreen extends ConsumerWidget {
     final canManage = user != null && user.can((p) => p.managePayroll);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Payroll Entry')),
+      appBar: AppBar(
+        title: const Text('Payroll Entry'),
+        actions: [
+          if (canManage)
+            IconButton(
+              icon: const Icon(Icons.edit_note),
+              tooltip: 'Edit Expected Amount',
+              onPressed: () {
+                final entry = entriesAsync.value?.where((e) => e.id == entryId).firstOrNull;
+                if (entry != null) {
+                  _showEditExpectedDialog(context, ref, entry);
+                }
+              },
+            ),
+        ],
+      ),
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
               onPressed: () => _showRecordPaymentSheet(context, ref, entryId),
@@ -38,8 +55,26 @@ class PayrollEntryDetailScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(entry.employeeName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              Text(entry.compensationType, style: const TextStyle(color: Colors.grey)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(entry.employeeName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text('${entry.compensationType} · $monthKey', style: const TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  if (canManage)
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.sync, size: 16),
+                      label: const Text('Sync Salary', style: TextStyle(fontSize: 12)),
+                      onPressed: () => _syncWithCurrentCompensation(context, ref, entry),
+                    ),
+                ],
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -63,7 +98,20 @@ class PayrollEntryDetailScreen extends ConsumerWidget {
                                 title: MoneyText(paisa: p.amountPaisa, isCashIn: false),
                                 subtitle: Text(
                                     '${p.paymentDateKey} · ${p.paymentMethod ?? '—'} · by ${p.paidByUserName}'),
-                                trailing: p.receiptUrl != null ? const Icon(Icons.attachment, size: 18) : null,
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (p.receiptUrl != null) const Icon(Icons.attachment, size: 18),
+                                    if (canManage) ...[
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                        tooltip: 'Delete Payment',
+                                        onPressed: () => _confirmDeletePayment(context, ref, p),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
                             ))
                         .toList(),
@@ -85,6 +133,116 @@ class PayrollEntryDetailScreen extends ConsumerWidget {
         MoneyText(paisa: paisa, isCashIn: false, fontSize: 14),
       ],
     );
+  }
+
+  void _confirmDeletePayment(BuildContext context, WidgetRef ref, PayrollPayment payment) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Payment'),
+        content: Text('Delete this payment of PKR ${(payment.amountPaisa / 100).toStringAsFixed(0)} on ${payment.paymentDateKey}? Payroll totals will be recalculated.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(payrollRepositoryProvider).deletePayrollPayment(payment.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Payment deleted successfully')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete payment: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditExpectedDialog(BuildContext context, WidgetRef ref, PayrollEntry entry) {
+    final ctrl = TextEditingController(text: (entry.expectedAmountPaisa / 100).toStringAsFixed(0));
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Expected Amount'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Update expected salary for ${entry.employeeName} (${entry.monthKey}):', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              decoration: const InputDecoration(
+                labelText: 'Expected Amount (PKR)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final val = int.tryParse(ctrl.text.trim());
+              if (val == null || val < 0) return;
+              Navigator.pop(ctx);
+              try {
+                await ref.read(payrollRepositoryProvider).updateExpectedAmount(entry.id, val * 100);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Expected amount updated')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error updating expected amount: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _syncWithCurrentCompensation(BuildContext context, WidgetRef ref, PayrollEntry entry) async {
+    try {
+      final comp = await ref.read(employeeRepositoryProvider).compensationFor(entry.employeeId);
+      if (comp == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No compensation record found for this employee')),
+          );
+        }
+        return;
+      }
+      await ref.read(payrollRepositoryProvider).updateExpectedAmount(entry.id, comp.baseSalaryPaisa);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Synced expected amount to PKR ${(comp.baseSalaryPaisa / 100).toStringAsFixed(0)}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error syncing compensation: $e')),
+        );
+      }
+    }
   }
 
   void _showRecordPaymentSheet(BuildContext context, WidgetRef ref, String entryId) {

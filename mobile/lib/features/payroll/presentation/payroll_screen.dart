@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/providers/auth_providers.dart';
 import '../../transactions/presentation/transaction_providers.dart';
+import '../../../shared/models/money.dart';
 import 'payroll_providers.dart';
 
 Color _statusColor(String status) {
@@ -73,6 +74,7 @@ class PayrollScreen extends ConsumerWidget {
 
           final totalExpected = entries.fold<int>(0, (s, e) => s + e.expectedAmountPaisa);
           final totalPaid = entries.fold<int>(0, (s, e) => s + e.totalPaidAmountPaisa);
+          final totalRemaining = totalExpected - totalPaid;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -82,27 +84,50 @@ class PayrollScreen extends ConsumerWidget {
                   Expanded(
                     child: Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Expected', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                            MoneyText(paisa: totalExpected, isCashIn: false, fontSize: 16),
+                            const Text('Expected', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                            const SizedBox(height: 4),
+                            MoneyText(paisa: totalExpected, isCashIn: false, fontSize: 14, color: Colors.black87),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Paid', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                            MoneyText(paisa: totalPaid, isCashIn: false, fontSize: 16),
+                            const Text('Paid', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                            const SizedBox(height: 4),
+                            MoneyText(paisa: totalPaid, isCashIn: true, fontSize: 14, color: Colors.green.shade700),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Remaining', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                            const SizedBox(height: 4),
+                            MoneyText(
+                              paisa: totalRemaining,
+                              isCashIn: false,
+                              fontSize: 14,
+                              color: totalRemaining < 0 ? Colors.orange.shade800 : Colors.red.shade700,
+                            ),
                           ],
                         ),
                       ),
@@ -110,14 +135,48 @@ class PayrollScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
               const SectionHeader('Employees'),
               ...entries.map((e) => Card(
                     child: ListTile(
-                      title: Text(e.employeeName),
-                      subtitle: Text('${e.compensationType} · Remaining: PKR ${(e.remainingAmountPaisa / 100).toStringAsFixed(0)}'),
+                      title: Text(e.employeeName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.compensationType, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 3),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 2,
+                              children: [
+                                Text(
+                                  'Paid: ${Money(e.totalPaidAmountPaisa).format()}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  'Remaining: ${Money(e.remainingAmountPaisa).format()}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: e.remainingAmountPaisa < 0 ? Colors.orange.shade800 : Colors.red.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       trailing: Chip(
-                        label: Text(e.status, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        label: Text(e.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
                         backgroundColor: _statusColor(e.status),
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       onTap: () => context.push('/payroll/${e.id}'),
                     ),

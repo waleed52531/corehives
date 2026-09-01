@@ -359,7 +359,14 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _SummaryCard(label: 'Payroll Paid', paisa: payrollPaid, isCashIn: false)),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Payroll Paid',
+                        paisa: payrollPaid,
+                        isCashIn: false,
+                        onTap: () => context.go('/payroll'),
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(child: _SummaryCard(label: 'Net Cash Flow', paisa: net, isCashIn: net >= 0)),
                   ],
