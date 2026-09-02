@@ -20,8 +20,8 @@ async function main() {
       console.log('No android_update document found in app_config.');
       console.log('\nInitializing default config...');
       const defaultConfig = {
-        latestVersion: '0.2.0',
-        latestVersionCode: 2,
+        latestVersion: '0.3.0',
+        latestVersionCode: 3,
         minimumVersionCode: 1,
         forceUpdate: true,
         apkUrl: 'https://example.com/corehives.apk',
