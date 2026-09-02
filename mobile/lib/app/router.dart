@@ -26,6 +26,7 @@ import '../features/config/presentation/platform_ids_screen.dart';
 import '../features/transactions/presentation/pending_reimbursements_screen.dart';
 import '../features/transactions/presentation/pending_cash_ins_screen.dart';
 import '../shared/providers/auth_providers.dart';
+import '../core/update/app_update_service.dart';
 
 import 'app_shell.dart';
 
@@ -34,6 +35,8 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final appUserState = ref.watch(currentAppUserProvider);
+  final isMandatoryUpdateActive = ref.watch(isMandatoryUpdateActiveProvider);
+  final isSplashCheckDone = ref.watch(isSplashCheckDoneProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -47,6 +50,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isSplash = location == '/splash';
       final isLogin = location == '/login';
       final isForgotPassword = location == '/forgot-password';
+
+      // ============================================================
+      // 0. Mandatory update blocker or initial splash check in progress
+      // ============================================================
+      if (isMandatoryUpdateActive) {
+        return isSplash ? null : '/splash';
+      }
+
+      if (!isSplashCheckDone) {
+        return isSplash ? null : '/splash';
+      }
 
       // ============================================================
       // 1. Firebase is still determining authentication state.
