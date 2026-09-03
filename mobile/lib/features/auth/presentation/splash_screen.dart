@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -29,35 +30,38 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!_hasCheckedUpdate) {
       _hasCheckedUpdate = true;
       try {
-        final updateResult = await ref.read(appUpdateServiceProvider).checkForUpdate();
+        final updateResult = await ref
+            .read(appUpdateServiceProvider)
+            .checkForUpdate()
+            .timeout(const Duration(seconds: 10));
 
         if (!mounted) return;
 
-        if (updateResult.status == UpdateStatus.mandatory && updateResult.updateModel != null) {
+        if (updateResult.status == UpdateStatus.mandatory &&
+            updateResult.updateModel != null) {
           ref.read(isMandatoryUpdateActiveProvider.notifier).state = true;
-          AppUpdateDialog.show(
+
+          // Let the first splash frame finish so the Navigator/dialog overlay is ready.
+          await Future<void>.delayed(Duration.zero);
+          if (!mounted) return;
+          await AppUpdateDialog.show(
             context,
             updateModel: updateResult.updateModel!,
             installedInfo: updateResult.installedInfo,
             isMandatory: true,
           );
           return;
-        } else if (updateResult.status == UpdateStatus.optional && updateResult.updateModel != null) {
-          AppUpdateDialog.show(
-            context,
-            updateModel: updateResult.updateModel!,
-            installedInfo: updateResult.installedInfo,
-            isMandatory: false,
-            onDismissed: () {
-              if (mounted) {
-                ref.read(isSplashCheckDoneProvider.notifier).state = true;
-              }
-            },
-          );
+        } else if (updateResult.status == UpdateStatus.optional &&
+            updateResult.updateModel != null) {
+          if (mounted) {
+            ref.read(pendingOptionalUpdateProvider.notifier).state =
+                updateResult;
+            ref.read(isSplashCheckDoneProvider.notifier).state = true;
+          }
           return;
         }
       } catch (e) {
-        // Logging / error handled gracefully in service
+        if (kDebugMode) print('[SplashScreen] Update check error: $e');
       }
     }
 

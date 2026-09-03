@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -52,21 +53,21 @@ class ApkDownloadService {
   /// Downloads the APK file from [apkUrl] with streaming progress updates.
   Stream<DownloadProgress> downloadApk({
     required String apkUrl,
-    required int targetVersionCode,
+    required String targetVersion,
   }) async* {
     _isCancelled = false;
     _client = http.Client();
 
     try {
       final uri = Uri.tryParse(apkUrl);
-      if (uri == null || !uri.hasScheme || (!uri.isScheme('https') && !uri.isScheme('http'))) {
+      if (uri == null ||
+          !uri.hasScheme ||
+          (!uri.isScheme('https') && !uri.isScheme('http'))) {
         yield DownloadProgress.error('Invalid APK URL.');
         return;
       }
 
-      if (kDebugMode) {
-        print('[ApkDownloadService] Starting download from $apkUrl');
-      }
+      debugPrint('[UpdateService] Download request: $apkUrl');
 
       final tempDir = await getTemporaryDirectory();
       final updateDir = Directory('${tempDir.path}/app_updates');
@@ -83,21 +84,25 @@ class ApkDownloadService {
           }
         }
       } catch (e) {
-        if (kDebugMode) print('[ApkDownloadService] Cleanup warning: $e');
+        debugPrint('[UpdateService] APK cleanup warning: $e');
       }
 
-      final targetFile = File('${updateDir.path}/corehives_v$targetVersionCode.apk');
+      final safeVersion =
+          targetVersion.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final targetFile = File('${updateDir.path}/corehives_v$safeVersion.apk');
 
       final request = http.Request('GET', uri);
       final response = await _client!.send(request).timeout(
         const Duration(seconds: 20),
         onTimeout: () {
-          throw TimeoutException('Connection timed out while connecting to update server.');
+          throw TimeoutException(
+              'Connection timed out while connecting to update server.');
         },
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        yield DownloadProgress.error('Server returned HTTP ${response.statusCode}');
+        yield DownloadProgress.error(
+            'Server returned HTTP ${response.statusCode}');
         return;
       }
 
@@ -119,7 +124,8 @@ class ApkDownloadService {
         sink.add(chunk);
         receivedBytes += chunk.length;
 
-        final progress = contentLength > 0 ? (receivedBytes / contentLength) : 0.0;
+        final progress =
+            contentLength > 0 ? (receivedBytes / contentLength) : 0.0;
 
         yield DownloadProgress(
           progress: progress,
@@ -131,15 +137,12 @@ class ApkDownloadService {
       await sink.flush();
       await sink.close();
 
-      if (kDebugMode) {
-        print('[ApkDownloadService] Download completed. Size: ${await targetFile.length()} bytes');
-      }
+      debugPrint(
+          '[UpdateService] Download completed. Size: ${await targetFile.length()} bytes');
 
       yield DownloadProgress.completed(targetFile, receivedBytes);
     } catch (e) {
-      if (kDebugMode) {
-        print('[ApkDownloadService] Download error: $e');
-      }
+      debugPrint('[UpdateService] Download error: $e');
       yield DownloadProgress.error(e is TimeoutException
           ? 'Download timed out. Please check your connection.'
           : 'Download failed: $e');

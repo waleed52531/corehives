@@ -109,40 +109,47 @@ final appUserByUidProvider =
       return;
     }
 
-    // Automatically create users/{uid} on first login.
-    await _ensureUserProfile(
-      firestore,
-      firebaseUser,
-    );
-
-    final userRef = firestore.collection('users').doc(uid);
-
-    await for (final doc in userRef.snapshots()) {
-      // Stop this provider immediately if Firebase Auth switches users.
-      final currentFirebaseUser = auth.currentUser;
-
-      if (currentFirebaseUser == null || currentFirebaseUser.uid != uid) {
-        break;
-      }
-
-      if (!doc.exists) {
-        yield null;
-        continue;
-      }
-
-      final appUser = AppUser.fromMap(
-        doc.id,
-        doc.data()!,
+    try {
+      // Automatically create users/{uid} on first login.
+      await _ensureUserProfile(
+        firestore,
+        firebaseUser,
       );
 
-      // Inactive users should not remain logged in.
-      if (!appUser.active) {
-        await auth.signOut();
-        yield null;
-        break;
-      }
+      final userRef = firestore.collection('users').doc(uid);
 
-      yield appUser;
+      await for (final doc in userRef.snapshots()) {
+        // Stop this provider immediately if Firebase Auth switches users.
+        final currentFirebaseUser = auth.currentUser;
+
+        if (currentFirebaseUser == null || currentFirebaseUser.uid != uid) {
+          break;
+        }
+
+        if (!doc.exists) {
+          yield null;
+          continue;
+        }
+
+        final appUser = AppUser.fromMap(
+          doc.id,
+          doc.data()!,
+        );
+
+        // Inactive users should not remain logged in.
+        if (!appUser.active) {
+          await auth.signOut();
+          yield null;
+          break;
+        }
+
+        yield appUser;
+      }
+    } catch (_) {
+      if (auth.currentUser?.uid == uid) {
+        await auth.signOut();
+      }
+      yield null;
     }
   },
 );

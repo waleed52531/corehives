@@ -1,0 +1,5 @@
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-keep class io.flutter.plugins.firebase.** { *; }
+-keep class * extends com.google.firebase.components.ComponentRegistrar { *; }
+-keepnames class * extends com.google.firebase.components.ComponentRegistrar

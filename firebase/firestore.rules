@@ -35,9 +35,42 @@ service cloud.firestore {
       ).data.status == 'open';
     }
 
+    function isSafeSelfUserCreate(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly([
+          'active',
+          'role',
+          'name',
+          'email',
+          'permissions',
+          'createdAt',
+          'updatedAt',
+          'createdByUserId',
+          'updatedByUserId'
+        ])
+        && request.resource.data.active == true
+        && request.resource.data.role == 'member'
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdByUserId == uid
+        && request.resource.data.updatedByUserId == uid
+        && request.resource.data.permissions.keys().hasOnly([
+          'viewPayroll',
+          'managePayroll',
+          'viewEmployees',
+          'manageEmployees',
+          'viewReports'
+        ])
+        && request.resource.data.permissions.viewPayroll == true
+        && request.resource.data.permissions.managePayroll == false
+        && request.resource.data.permissions.viewEmployees == true
+        && request.resource.data.permissions.manageEmployees == false
+        && request.resource.data.permissions.viewReports == true;
+    }
+
     match /users/{uid} {
       allow read: if isActive();
-      allow create: if isAdmin();
+      allow create: if isAdmin() || isSafeSelfUserCreate(uid);
       allow update: if isAdmin() || (
         isActive()
         && request.auth.uid == uid
