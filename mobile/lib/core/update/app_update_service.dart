@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+
 import 'app_update_model.dart';
+import 'update_config.dart';
 
 class InstalledAppInfo {
   final String version;
@@ -34,13 +38,34 @@ class UpdateCheckResult {
   bool get isOptional => status == UpdateStatus.optional;
 }
 
+class _GitHubReleaseCandidate {
+  final String version;
+  final int buildNumber;
+  final String tag;
+  final String apkUrl;
+  final String releaseNotes;
+  final String releaseUrl;
+  final String assetName;
+  final DateTime? publishedAt;
+
+  const _GitHubReleaseCandidate({
+    required this.version,
+    required this.buildNumber,
+    required this.tag,
+    required this.apkUrl,
+    required this.releaseNotes,
+    required this.releaseUrl,
+    required this.assetName,
+    required this.publishedAt,
+  });
+}
+
 class AppUpdateService {
-  final FirebaseFirestore _db;
-  int? _dismissedVersionCodeInSession;
+  final http.Client _client;
+  String? _dismissedVersionInSession;
 
-  AppUpdateService({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  AppUpdateService({http.Client? client}) : _client = client ?? http.Client();
 
-  /// Retrieves the installed app's semantic version and integer versionCode.
   Future<InstalledAppInfo> getInstalledAppInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
@@ -50,40 +75,22 @@ class AppUpdateService {
         versionCode: versionCode,
       );
     } catch (e) {
-      if (kDebugMode) print('[AppUpdateService] Error getting PackageInfo: $e');
+      debugPrint('[UpdateService] Failed to read installed package info: $e');
       return const InstalledAppInfo(version: '1.0.0', versionCode: 1);
     }
   }
 
-  /// Fetches update configuration from Firestore document `app_config/android_update`.
-  Future<AppUpdateModel?> fetchUpdateConfig() async {
-    try {
-      final doc = await _db
-          .collection('app_config')
-          .doc('android_update')
-          .get()
-          .timeout(const Duration(seconds: 4));
-
-      if (!doc.exists || doc.data() == null) {
-        if (kDebugMode) print('[AppUpdateService] app_config/android_update document not found.');
-        return null;
-      }
-
-      return AppUpdateModel.fromFirestore(doc);
-    } catch (e) {
-      if (kDebugMode) {
-        print('[AppUpdateService] Error fetching update config: $e');
-      }
-      return null;
-    }
-  }
-
-  /// Performs a complete update check.
-  Future<UpdateCheckResult> checkForUpdate({bool ignoreSessionDismissal = false}) async {
+  Future<UpdateCheckResult> checkForUpdate(
+      {bool ignoreSessionDismissal = false}) async {
     final installedInfo = await getInstalledAppInfo();
 
-    // In-app APK updates are Android-only
+    debugPrint(
+      '[UpdateService] Installed version: ${installedInfo.version}',
+    );
+    debugPrint('[UpdateService] Installed build: ${installedInfo.versionCode}');
+
     if (!Platform.isAndroid) {
+      debugPrint('[UpdateService] APK update skipped: not Android.');
       return UpdateCheckResult(
         status: UpdateStatus.none,
         installedInfo: installedInfo,
@@ -91,40 +98,73 @@ class AppUpdateService {
     }
 
     try {
-      final config = await fetchUpdateConfig();
+      final release = await _fetchLatestValidRelease().timeout(
+        const Duration(seconds: 7),
+      );
 
-      if (config == null) {
+      if (release == null) {
+        debugPrint(
+            '[UpdateService] No valid GitHub release with APK asset found.');
         return UpdateCheckResult(
           status: UpdateStatus.none,
           installedInfo: installedInfo,
         );
       }
 
-      if (kDebugMode) {
-        print('[AppUpdateService] Installed: ${installedInfo.version} (${installedInfo.versionCode})');
-        print('[AppUpdateService] Latest: ${config.latestVersion} (${config.latestVersionCode}), Min: ${config.minimumVersionCode}, Force: ${config.forceUpdate}');
-      }
+      final policy = await _fetchUpdatePolicy().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint(
+              '[UpdateService] update.json timed out; forced update disabled.');
+          return const UpdatePolicy();
+        },
+      );
 
-      final status = config.getUpdateStatus(installedInfo.versionCode);
+      final updateModel = AppUpdateModel(
+        currentVersion: installedInfo.version,
+        currentBuildNumber: installedInfo.versionCode,
+        latestVersion: release.version,
+        latestBuildNumber: release.buildNumber,
+        minimumBuildNumber: policy.minimumBuildNumber,
+        forceUpdate: policy.forceUpdate,
+        apkUrl: release.apkUrl,
+        releaseNotes: release.releaseNotes,
+        releaseUrl: release.releaseUrl,
+        assetName: release.assetName,
+      );
 
-      // If user dismissed this optional update in this session and it's not forced
+      final status = updateModel.status;
+
+      debugPrint('[UpdateService] GitHub tag: ${release.tag}');
+      debugPrint(
+          '[UpdateService] Latest version: ${updateModel.latestVersion}');
+      debugPrint(
+          '[UpdateService] Latest build: ${updateModel.latestBuildNumber}');
+      debugPrint('[UpdateService] APK found: ${updateModel.apkUrl.isNotEmpty}');
+      debugPrint(
+          '[UpdateService] Update available: ${updateModel.isUpdateAvailable}');
+      debugPrint('[UpdateService] Forced: ${updateModel.isForceUpdate}');
+      debugPrint('[UpdateService] APK URL: ${updateModel.apkUrl}');
+
       if (status == UpdateStatus.optional &&
           !ignoreSessionDismissal &&
-          _dismissedVersionCodeInSession == config.latestVersionCode) {
+          _dismissedVersionInSession == updateModel.sessionKey) {
+        debugPrint(
+            '[UpdateService] Optional update already dismissed this session.');
         return UpdateCheckResult(
           status: UpdateStatus.none,
           installedInfo: installedInfo,
-          updateModel: config,
+          updateModel: updateModel,
         );
       }
 
       return UpdateCheckResult(
         status: status,
         installedInfo: installedInfo,
-        updateModel: config,
+        updateModel: updateModel,
       );
     } catch (e) {
-      if (kDebugMode) print('[AppUpdateService] Check failed: $e');
+      debugPrint('[UpdateService] Check failed; continuing startup: $e');
       return UpdateCheckResult(
         status: UpdateStatus.none,
         installedInfo: installedInfo,
@@ -133,15 +173,144 @@ class AppUpdateService {
     }
   }
 
-  /// Marks an optional update as dismissed for the remainder of this app session.
-  void dismissOptionalUpdateInSession(int versionCode) {
-    _dismissedVersionCodeInSession = versionCode;
+  Future<_GitHubReleaseCandidate?> _fetchLatestValidRelease() async {
+    debugPrint(
+        '[UpdateService] Checking GitHub latest release: ${UpdateConfig.latestReleaseUri}');
+
+    final response = await _client.get(
+      UpdateConfig.latestReleaseUri,
+      headers: const {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'CoreHives-Android-Updater',
+      },
+    );
+
+    debugPrint(
+        '[UpdateService] GitHub latest release HTTP status: ${response.statusCode}');
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException(
+          'GitHub latest release API returned HTTP ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException(
+          'GitHub latest release response was not an object.');
+    }
+
+    if (decoded['draft'] == true) {
+      debugPrint('[UpdateService] Latest GitHub release is a draft; ignoring.');
+      return null;
+    }
+
+    final tag = (decoded['tag_name'] ?? '').toString().trim();
+    if (tag.isEmpty) {
+      debugPrint('[UpdateService] Latest GitHub release has no tag.');
+      return null;
+    }
+
+    late final ReleaseTagVersion parsedTag;
+    try {
+      parsedTag = ReleaseTagVersion.parse(tag);
+    } catch (e) {
+      debugPrint(
+          '[UpdateService] Latest GitHub release tag is invalid: $tag ($e)');
+      return null;
+    }
+
+    final assets = decoded['assets'];
+    if (assets is! List) {
+      debugPrint('[UpdateService] Latest GitHub release assets are missing.');
+      return null;
+    }
+
+    Map<String, dynamic>? apkAsset;
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      final name = (asset['name'] ?? '').toString();
+      final downloadUrl = (asset['browser_download_url'] ?? '').toString();
+      if (name.toLowerCase().endsWith('.apk') &&
+          downloadUrl.startsWith('http')) {
+        apkAsset = asset;
+        break;
+      }
+    }
+
+    debugPrint('[UpdateService] APK found: ${apkAsset != null}');
+
+    if (apkAsset == null) return null;
+
+    return _GitHubReleaseCandidate(
+      version: parsedTag.versionName,
+      buildNumber: parsedTag.buildNumber,
+      tag: tag,
+      apkUrl: apkAsset['browser_download_url'].toString(),
+      releaseNotes: (decoded['body'] ?? '').toString(),
+      releaseUrl: (decoded['html_url'] ?? '').toString(),
+      assetName: (apkAsset['name'] ?? 'corehives-${parsedTag.versionName}.apk')
+          .toString(),
+      publishedAt:
+          DateTime.tryParse((decoded['published_at'] ?? '').toString()),
+    );
+  }
+
+  Future<UpdatePolicy> _fetchUpdatePolicy() async {
+    try {
+      debugPrint(
+          '[UpdateService] Checking update policy: ${UpdateConfig.updatePolicyUri}');
+
+      final response = await _client.get(
+        UpdateConfig.updatePolicyUri,
+        headers: const {
+          'Accept': 'application/json',
+          'User-Agent': 'CoreHives-Android-Updater',
+        },
+      );
+
+      debugPrint(
+          '[UpdateService] update.json HTTP status: ${response.statusCode}');
+
+      if (response.statusCode == 404) {
+        debugPrint(
+            '[UpdateService] update.json not found; forced update disabled.');
+        return const UpdatePolicy();
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugPrint(
+            '[UpdateService] update.json HTTP ${response.statusCode}; forced update disabled.');
+        return const UpdatePolicy();
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        debugPrint(
+            '[UpdateService] update.json malformed; forced update disabled.');
+        return const UpdatePolicy();
+      }
+
+      return UpdatePolicy.fromMap(decoded);
+    } catch (e) {
+      debugPrint(
+          '[UpdateService] update.json failed; forced update disabled: $e');
+      return const UpdatePolicy();
+    }
+  }
+
+  void dismissOptionalUpdateInSession(String updateSessionKey) {
+    _dismissedVersionInSession = updateSessionKey;
   }
 }
 
 final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
-  return AppUpdateService();
+  final service = AppUpdateService();
+  ref.onDispose(service._client.close);
+  return service;
 });
+
+final pendingOptionalUpdateProvider =
+    StateProvider<UpdateCheckResult?>((ref) => null);
 
 /// Holds the active mandatory update blocking state if the installed version is blocked.
 final isMandatoryUpdateActiveProvider = StateProvider<bool>((ref) => false);

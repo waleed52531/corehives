@@ -74,6 +74,9 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
   }
 
   void _startDownload() {
+    if (_state == DialogDownloadState.downloading) return;
+
+    debugPrint('[UpdateService] Download started');
     setState(() {
       _state = DialogDownloadState.downloading;
       _progress = 0.0;
@@ -85,51 +88,54 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
     _downloadSub?.cancel();
     _downloadSub = _downloadService
         .downloadApk(
-          apkUrl: widget.updateModel.apkUrl,
-          targetVersionCode: widget.updateModel.latestVersionCode,
-        )
+      apkUrl: widget.updateModel.apkUrl,
+      targetVersion: widget.updateModel.latestVersion,
+    )
         .listen(
-          (event) {
-            if (!mounted) return;
+      (event) {
+        if (!mounted) return;
 
-            if (event.error != null) {
-              setState(() {
-                _state = DialogDownloadState.failed;
-                _errorMessage = event.error;
-              });
-            } else if (event.isCompleted && event.file != null) {
-              setState(() {
-                _state = DialogDownloadState.completed;
-                _progress = 1.0;
-                _downloadedFile = event.file;
-              });
-              _triggerInstallation(event.file!);
-            } else {
-              setState(() {
-                _progress = event.progress;
-                _receivedBytes = event.receivedBytes;
-                _totalBytes = event.totalBytes;
-              });
-            }
-          },
-          onError: (err) {
-            if (!mounted) return;
-            setState(() {
-              _state = DialogDownloadState.failed;
-              _errorMessage = err.toString();
-            });
-          },
-        );
+        if (event.error != null) {
+          setState(() {
+            _state = DialogDownloadState.failed;
+            _errorMessage = event.error;
+          });
+        } else if (event.isCompleted && event.file != null) {
+          debugPrint('[UpdateService] Download completed');
+          setState(() {
+            _state = DialogDownloadState.completed;
+            _progress = 1.0;
+            _downloadedFile = event.file;
+          });
+          _triggerInstallation(event.file!);
+        } else {
+          setState(() {
+            _progress = event.progress;
+            _receivedBytes = event.receivedBytes;
+            _totalBytes = event.totalBytes;
+          });
+        }
+      },
+      onError: (err) {
+        if (!mounted) return;
+        setState(() {
+          _state = DialogDownloadState.failed;
+          _errorMessage = err.toString();
+        });
+      },
+    );
   }
 
   Future<void> _triggerInstallation(File file) async {
+    debugPrint('[UpdateService] Opening installer');
     final result = await _installerService.installApk(file);
     if (!mounted) return;
 
     if (!result.isSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.message ?? 'Could not launch package installer.'),
+          content:
+              Text(result.message ?? 'Could not launch package installer.'),
           backgroundColor: Colors.red.shade700,
           duration: const Duration(seconds: 4),
         ),
@@ -150,6 +156,9 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
     final primaryColor = theme.primaryColor;
 
     final releaseNotesList = widget.updateModel.releaseNotesList;
+    final latestDisplayVersion = widget.updateModel.latestDisplayVersion;
+    final installedDisplayVersion =
+        '${widget.installedInfo.version}+${widget.installedInfo.versionCode}';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -173,13 +182,21 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                     height: 48,
                     decoration: BoxDecoration(
                       color: widget.isMandatory
-                          ? (isDark ? const Color(0xFF3B1E1E) : const Color(0xFFFFECEC))
-                          : (isDark ? const Color(0xFF1C2A3A) : const Color(0xFFE8F2FF)),
+                          ? (isDark
+                              ? const Color(0xFF3B1E1E)
+                              : const Color(0xFFFFECEC))
+                          : (isDark
+                              ? const Color(0xFF1C2A3A)
+                              : const Color(0xFFE8F2FF)),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
-                      widget.isMandatory ? Icons.system_security_update_warning : Icons.system_update_rounded,
-                      color: widget.isMandatory ? Colors.red.shade600 : primaryColor,
+                      widget.isMandatory
+                          ? Icons.system_security_update_warning
+                          : Icons.system_update_rounded,
+                      color: widget.isMandatory
+                          ? Colors.red.shade600
+                          : primaryColor,
                       size: 26,
                     ),
                   ),
@@ -189,7 +206,9 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.isMandatory ? 'Update Required' : 'Update Available',
+                          widget.isMandatory
+                              ? 'Update Required'
+                              : 'Update Available',
                           style: const TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.w700,
@@ -200,10 +219,12 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                         Text(
                           widget.isMandatory
                               ? 'A newer version of CoreHives is required.'
-                              : 'CoreHives ${widget.updateModel.latestVersion.isNotEmpty ? widget.updateModel.latestVersion : 'v${widget.updateModel.latestVersionCode}'} is ready to install.',
+                              : 'CoreHives v$latestDisplayVersion is ready to install.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade700,
                           ),
                         ),
                       ],
@@ -215,30 +236,41 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
 
               // Version comparison tag
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF21262D) : const Color(0xFFF6F8FA),
+                  color: isDark
+                      ? const Color(0xFF21262D)
+                      : const Color(0xFFF6F8FA),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF30363D) : const Color(0xFFE1E4E8),
+                    color: isDark
+                        ? const Color(0xFF30363D)
+                        : const Color(0xFFE1E4E8),
                   ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Installed: v${widget.installedInfo.version} (${widget.installedInfo.versionCode})',
+                      'Installed: v$installedDisplayVersion',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
                       ),
                     ),
                     Row(
                       children: [
-                        Icon(Icons.arrow_forward_rounded, size: 14, color: isDark ? Colors.grey.shade500 : Colors.grey.shade500),
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 14,
+                            color: isDark
+                                ? Colors.grey.shade500
+                                : Colors.grey.shade500),
                         const SizedBox(width: 4),
                         Text(
-                          'Latest: v${widget.updateModel.latestVersion} (${widget.updateModel.latestVersionCode})',
+                          'Latest: v$latestDisplayVersion',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -272,7 +304,8 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  margin: const EdgeInsets.only(top: 6, right: 8),
+                                  margin:
+                                      const EdgeInsets.only(top: 6, right: 8),
                                   width: 5,
                                   height: 5,
                                   decoration: BoxDecoration(
@@ -286,7 +319,9 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       height: 1.35,
-                                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
+                                      color: isDark
+                                          ? Colors.grey.shade300
+                                          : Colors.grey.shade800,
                                     ),
                                   ),
                                 ),
@@ -308,13 +343,15 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                           onPressed: () {
                             ref
                                 .read(appUpdateServiceProvider)
-                                .dismissOptionalUpdateInSession(widget.updateModel.latestVersionCode);
+                                .dismissOptionalUpdateInSession(
+                                    widget.updateModel.sessionKey);
                             Navigator.of(context).pop();
                             widget.onDismissed?.call();
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           child: const Text('Later'),
                         ),
@@ -327,9 +364,12 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                         onPressed: _startDownload,
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: Text(widget.isMandatory ? 'Update CoreHives' : 'Update Now'),
+                        child: Text(widget.isMandatory
+                            ? 'Update CoreHives'
+                            : 'Update Now'),
                       ),
                     ),
                   ],
@@ -369,7 +409,9 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                         '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                         ),
                       ),
                   ],
@@ -398,13 +440,16 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF193222) : const Color(0xFFEDFBF0),
+                    color: isDark
+                        ? const Color(0xFF193222)
+                        : const Color(0xFFEDFBF0),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.green.shade300),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
+                      const Icon(Icons.check_circle_rounded,
+                          color: Colors.green, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -412,7 +457,9 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: isDark ? Colors.green.shade200 : Colors.green.shade900,
+                            color: isDark
+                                ? Colors.green.shade200
+                                : Colors.green.shade900,
                           ),
                         ),
                       ),
@@ -430,7 +477,8 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                   label: const Text('Install Now'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ] else if (_state == DialogDownloadState.failed) ...[
@@ -438,14 +486,17 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF3B1E1E) : const Color(0xFFFFECEC),
+                    color: isDark
+                        ? const Color(0xFF3B1E1E)
+                        : const Color(0xFFFFECEC),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.red.shade300),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 24),
+                      Icon(Icons.error_outline_rounded,
+                          color: Colors.red.shade700, size: 24),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -461,10 +512,13 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _errorMessage ?? 'Could not download the update. Please check your internet connection.',
+                              _errorMessage ??
+                                  'Could not download the update. Please check your internet connection.',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? Colors.red.shade200 : Colors.red.shade900,
+                                color: isDark
+                                    ? Colors.red.shade200
+                                    : Colors.red.shade900,
                               ),
                             ),
                           ],
@@ -485,7 +539,8 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           child: const Text('Cancel'),
                         ),
@@ -497,7 +552,8 @@ class _AppUpdateDialogState extends ConsumerState<AppUpdateDialog> {
                         onPressed: _startDownload,
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         child: const Text('Retry'),
                       ),

@@ -30,7 +30,7 @@ import '../core/update/app_update_service.dart';
 
 import 'app_shell.dart';
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -39,7 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final isSplashCheckDone = ref.watch(isSplashCheckDoneProvider);
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) {
       final firebaseUser = authState.asData?.value;
@@ -108,7 +108,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ============================================================
 
       if (appUserState.hasError) {
-        return isSplash ? null : '/splash';
+        if (isLogin || isForgotPassword) {
+          return null;
+        }
+
+        return '/login';
       }
 
       // ============================================================
@@ -169,22 +173,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Full-screen routes pushed on top of the shell (not part of bottom nav).
       GoRoute(
         path: '/add-expense',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (c, s) => AddExpenseScreen(editId: s.uri.queryParameters['editId']),
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (c, s) =>
+            AddExpenseScreen(editId: s.uri.queryParameters['editId']),
       ),
       GoRoute(
         path: '/add-cash-in',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (c, s) => AddCashInScreen(editId: s.uri.queryParameters['editId']),
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (c, s) =>
+            AddCashInScreen(editId: s.uri.queryParameters['editId']),
       ),
       GoRoute(
         path: '/notifications',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (c, s) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/transactions/:id',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           return TransactionDetailScreen(
             transactionId: state.pathParameters['id']!,
@@ -194,7 +200,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/payroll/:id',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           return PayrollEntryDetailScreen(
             entryId: state.pathParameters['id']!,
@@ -204,7 +210,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/employees',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           return const EmployeeDirectoryScreen();
         },
@@ -212,7 +218,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/employees/:id',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           return EmployeeDetailScreen(
             employeeId: state.pathParameters['id']!,
@@ -221,7 +227,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/add-employee',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (c, s) {
           final extra = s.extra as Employee?;
           return AddEmployeeScreen(employeeToEdit: extra);
@@ -229,17 +235,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/platform-ids',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (c, s) => const PlatformIdsScreen(),
       ),
       GoRoute(
         path: '/pending-reimbursements',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (c, s) => const PendingReimbursementsScreen(),
       ),
       GoRoute(
         path: '/pending-cash-ins',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (c, s) => const PendingCashInsScreen(),
       ),
 

@@ -1,54 +1,170 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum UpdateStatus {
   none,
   optional,
   mandatory,
 }
 
+class SemanticVersion implements Comparable<SemanticVersion> {
+  final int major;
+  final int minor;
+  final int patch;
+
+  const SemanticVersion(this.major, this.minor, this.patch);
+
+  factory SemanticVersion.parse(String value) {
+    final normalized = value.trim().replaceFirst(RegExp(r'^[vV]'), '');
+    final main = normalized.split(RegExp(r'[-+]')).first;
+    final parts = main.split('.');
+
+    if (parts.isEmpty || parts.length > 3) {
+      throw FormatException('Invalid semantic version: $value');
+    }
+
+    int parsePart(int index) {
+      if (index >= parts.length) return 0;
+      final parsed = int.tryParse(parts[index]);
+      if (parsed == null || parsed < 0) {
+        throw FormatException('Invalid semantic version: $value');
+      }
+      return parsed;
+    }
+
+    return SemanticVersion(
+      parsePart(0),
+      parsePart(1),
+      parsePart(2),
+    );
+  }
+
+  @override
+  int compareTo(SemanticVersion other) {
+    if (major != other.major) return major.compareTo(other.major);
+    if (minor != other.minor) return minor.compareTo(other.minor);
+    return patch.compareTo(other.patch);
+  }
+
+  @override
+  String toString() => '$major.$minor.$patch';
+}
+
+class UpdatePolicy {
+  final int minimumBuildNumber;
+  final bool forceUpdate;
+
+  const UpdatePolicy({
+    this.minimumBuildNumber = 0,
+    this.forceUpdate = false,
+  });
+
+  factory UpdatePolicy.fromMap(Map<String, dynamic> map) {
+    int parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value.trim()) ?? 0;
+      return 0;
+    }
+
+    bool parseBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final lower = value.trim().toLowerCase();
+        return lower == 'true' || lower == '1' || lower == 'yes';
+      }
+      return false;
+    }
+
+    return UpdatePolicy(
+      minimumBuildNumber: parseInt(map['minimumBuildNumber']),
+      forceUpdate: parseBool(map['forceUpdate']),
+    );
+  }
+}
+
+class ReleaseTagVersion {
+  final String versionName;
+  final int buildNumber;
+
+  const ReleaseTagVersion({
+    required this.versionName,
+    required this.buildNumber,
+  });
+
+  factory ReleaseTagVersion.parse(String tag) {
+    final normalized = normalizeTag(tag);
+    final parts = normalized.split('+');
+    final versionName = parts.first.trim();
+    final buildNumber =
+        parts.length > 1 ? int.tryParse(parts[1].trim()) ?? 0 : 0;
+
+    if (versionName.isEmpty) {
+      throw FormatException('Invalid release tag: $tag');
+    }
+
+    SemanticVersion.parse(versionName);
+
+    return ReleaseTagVersion(
+      versionName: versionName,
+      buildNumber: buildNumber,
+    );
+  }
+
+  static String normalizeTag(String tag) {
+    final value = tag.trim();
+    if (value.toLowerCase().startsWith('v')) {
+      return value.substring(1);
+    }
+    return value;
+  }
+}
+
 class AppUpdateModel {
+  final String currentVersion;
+  final int currentBuildNumber;
   final String latestVersion;
-  final int latestVersionCode;
-  final int minimumVersionCode;
+  final int latestBuildNumber;
+  final int minimumBuildNumber;
   final bool forceUpdate;
   final String apkUrl;
   final String releaseNotes;
+  final String releaseUrl;
+  final String assetName;
 
   const AppUpdateModel({
+    required this.currentVersion,
+    required this.currentBuildNumber,
     required this.latestVersion,
-    required this.latestVersionCode,
-    required this.minimumVersionCode,
+    required this.latestBuildNumber,
+    required this.minimumBuildNumber,
     required this.forceUpdate,
     required this.apkUrl,
     required this.releaseNotes,
+    required this.releaseUrl,
+    required this.assetName,
   });
 
-  /// Evaluates whether this update is mandatory for the given installed build number.
-  bool isMandatoryFor(int installedVersionCode) {
-    if (forceUpdate) return true;
-    if (minimumVersionCode > 0 && installedVersionCode < minimumVersionCode) {
+  bool get isUpdateAvailable {
+    if (latestBuildNumber > currentBuildNumber) {
       return true;
     }
-    return false;
+
+    return SemanticVersion.parse(latestVersion).compareTo(
+          SemanticVersion.parse(currentVersion),
+        ) >
+        0;
   }
 
-  /// Evaluates whether an update is available for the given installed build number.
-  bool isUpdateAvailable(int installedVersionCode) {
-    return apkUrl.trim().isNotEmpty && installedVersionCode < latestVersionCode;
+  bool get isForceUpdate {
+    if (!isUpdateAvailable) return false;
+    if (forceUpdate) return true;
+    return minimumBuildNumber > 0 && currentBuildNumber < minimumBuildNumber;
   }
 
-  /// Determines the update status category (none, optional, or mandatory).
-  UpdateStatus getUpdateStatus(int installedVersionCode) {
-    if (!isUpdateAvailable(installedVersionCode)) {
-      return UpdateStatus.none;
-    }
-    if (isMandatoryFor(installedVersionCode)) {
-      return UpdateStatus.mandatory;
-    }
-    return UpdateStatus.optional;
+  UpdateStatus get status {
+    if (!isUpdateAvailable) return UpdateStatus.none;
+    return isForceUpdate ? UpdateStatus.mandatory : UpdateStatus.optional;
   }
 
-  /// Converts bulleted release notes or paragraphs into formatted bullet points.
   List<String> get releaseNotesList {
     if (releaseNotes.trim().isEmpty) return const [];
     return releaseNotes
@@ -58,69 +174,14 @@ class AppUpdateModel {
         .toList();
   }
 
-  factory AppUpdateModel.fromMap(Map<String, dynamic> map) {
-    // Helper to safely parse int from dynamic (int, double, string)
-    int parseInt(dynamic val, int defaultVal) {
-      if (val == null) return defaultVal;
-      if (val is int) return val;
-      if (val is num) return val.toInt();
-      if (val is String) {
-        final parsed = int.tryParse(val.trim());
-        if (parsed != null) return parsed;
-      }
-      return defaultVal;
-    }
+  String get sessionKey => '$latestVersion+$latestBuildNumber';
 
-    // Helper to safely parse bool from dynamic (bool, string, int)
-    bool parseBool(dynamic val, bool defaultVal) {
-      if (val == null) return defaultVal;
-      if (val is bool) return val;
-      if (val is String) {
-        final s = val.trim().toLowerCase();
-        if (s == 'true' || s == '1') return true;
-        if (s == 'false' || s == '0') return false;
-      }
-      if (val is num) return val != 0;
-      return defaultVal;
-    }
+  String get currentDisplayVersion => '$currentVersion+$currentBuildNumber';
 
-    return AppUpdateModel(
-      latestVersion: (map['latestVersion'] ?? map['android_latest_version'] ?? '').toString().trim(),
-      latestVersionCode: parseInt(map['latestVersionCode'] ?? map['android_latest_version_code'], 0),
-      minimumVersionCode: parseInt(map['minimumVersionCode'] ?? map['android_minimum_version_code'], 0),
-      forceUpdate: parseBool(map['forceUpdate'] ?? map['android_force_update'], false),
-      apkUrl: (map['apkUrl'] ?? map['android_apk_url'] ?? '').toString().trim(),
-      releaseNotes: (map['releaseNotes'] ?? map['android_release_notes'] ?? '').toString().trim(),
-    );
-  }
-
-  factory AppUpdateModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    if (!doc.exists || doc.data() == null) {
-      return const AppUpdateModel(
-        latestVersion: '',
-        latestVersionCode: 0,
-        minimumVersionCode: 0,
-        forceUpdate: false,
-        apkUrl: '',
-        releaseNotes: '',
-      );
-    }
-    return AppUpdateModel.fromMap(doc.data()!);
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'latestVersion': latestVersion,
-      'latestVersionCode': latestVersionCode,
-      'minimumVersionCode': minimumVersionCode,
-      'forceUpdate': forceUpdate,
-      'apkUrl': apkUrl,
-      'releaseNotes': releaseNotes,
-    };
-  }
+  String get latestDisplayVersion => '$latestVersion+$latestBuildNumber';
 
   @override
   String toString() {
-    return 'AppUpdateModel(latestVersion: $latestVersion, latestVersionCode: $latestVersionCode, minVersionCode: $minimumVersionCode, forceUpdate: $forceUpdate, apkUrl: $apkUrl)';
+    return 'AppUpdateModel(currentVersion: $currentDisplayVersion, latestVersion: $latestDisplayVersion, minimumBuildNumber: $minimumBuildNumber, forceUpdate: $forceUpdate, apkUrl: $apkUrl, assetName: $assetName)';
   }
 }

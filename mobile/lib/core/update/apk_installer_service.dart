@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -46,11 +47,13 @@ class ApkInstallerService {
   /// Launches the Android Package Installer for the downloaded APK file.
   Future<InstallResult> installApk(File apkFile) async {
     if (!Platform.isAndroid) {
-      return const InstallResult(InstallResultType.notAndroid, 'APK installation is only supported on Android.');
+      return const InstallResult(InstallResultType.notAndroid,
+          'APK installation is only supported on Android.');
     }
 
     if (!await apkFile.exists()) {
-      return const InstallResult(InstallResultType.fileNotFound, 'Downloaded APK file not found.');
+      return const InstallResult(
+          InstallResultType.fileNotFound, 'Downloaded APK file not found.');
     }
 
     try {
@@ -66,18 +69,16 @@ class ApkInstallerService {
         }
       }
 
-      if (kDebugMode) {
-        print('[ApkInstallerService] Opening APK: ${apkFile.path}');
-      }
+      debugPrint(
+          '[UpdateService] Opening APK with Android installer: ${apkFile.path}');
 
       final result = await OpenFilex.open(
         apkFile.path,
         type: 'application/vnd.android.package-archive',
       );
 
-      if (kDebugMode) {
-        print('[ApkInstallerService] OpenFilex result: ${result.type} - ${result.message}');
-      }
+      debugPrint(
+          '[UpdateService] Installer open result: ${result.type} - ${result.message}');
 
       if (result.type == ResultType.done) {
         return const InstallResult(InstallResultType.success);
@@ -87,15 +88,15 @@ class ApkInstallerService {
           'Permission to install unknown apps was denied.',
         );
       } else if (result.type == ResultType.fileNotFound) {
-        return const InstallResult(InstallResultType.fileNotFound, 'APK file was not found.');
+        return const InstallResult(
+            InstallResultType.fileNotFound, 'APK file was not found.');
       } else {
         return InstallResult(InstallResultType.error, result.message);
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('[ApkInstallerService] Error installing APK: $e');
-      }
-      return InstallResult(InstallResultType.error, 'Could not open package installer: $e');
+      debugPrint('[UpdateService] Error opening installer: $e');
+      return InstallResult(
+          InstallResultType.error, 'Could not open package installer: $e');
     }
   }
 }

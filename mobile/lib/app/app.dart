@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'router.dart';
 import 'theme.dart';
 import 'theme_provider.dart';
+import '../core/update/app_update_dialog.dart';
+import '../core/update/app_update_service.dart';
 import '../shared/services/notification_service.dart';
 import '../shared/providers/auth_providers.dart';
 import '../shared/models/app_user.dart';
@@ -17,6 +19,28 @@ class CoreHivesApp extends ConsumerWidget {
       if (user != null) {
         NotificationService.registerUserDevice(user.uid);
       }
+    });
+
+    ref.listen<UpdateCheckResult?>(pendingOptionalUpdateProvider,
+        (previous, next) {
+      if (next == null || next.updateModel == null) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final context = rootNavigatorKey.currentContext;
+        if (context == null) return;
+
+        await AppUpdateDialog.show(
+          context,
+          updateModel: next.updateModel!,
+          installedInfo: next.installedInfo,
+          isMandatory: false,
+        );
+
+        ref.read(appUpdateServiceProvider).dismissOptionalUpdateInSession(
+              next.updateModel!.sessionKey,
+            );
+        ref.read(pendingOptionalUpdateProvider.notifier).state = null;
+      });
     });
 
     final router = ref.watch(routerProvider);
