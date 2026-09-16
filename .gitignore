@@ -26,6 +26,9 @@ web/.next/
 *-debug.log
 .log
 
+# OS / IDE metadata
+.DS_Store
+.idea/
 
 branch_structure.json
 temp_auto_push.bat
