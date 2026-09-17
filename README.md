@@ -1,12 +1,10 @@
 # CoreHives
 
-Internal finance and employee-management platform with a Flutter mobile client, Firebase-backed services, and supporting web/cloud components.
+CoreHives is an internal finance and employee-management platform with a Flutter mobile client, Firebase-backed services, and supporting web/cloud components.
 
-## Overview
+It is designed around operational workflows such as employee management, payroll, transactions, notifications, and internal Android distribution.
 
-CoreHives is built for internal operational use, bringing employee, payroll, transaction, notification, and finance workflows into a single system. The repository contains the Flutter mobile application together with Firebase/cloud-function and web support code.
-
-## Mobile stack
+## Mobile Stack
 
 - Flutter / Dart
 - Riverpod for state management
@@ -19,7 +17,7 @@ CoreHives is built for internal operational use, bringing employee, payroll, tra
 - Firebase Crashlytics
 - Freezed / JSON serialization
 
-## Main mobile modules
+## Main Mobile Modules
 
 - Authentication and session handling
 - Employee management
@@ -28,9 +26,23 @@ CoreHives is built for internal operational use, bringing employee, payroll, tra
 - Notifications
 - User profile
 - Application configuration
-- Internal home/dashboard experience
+- Internal dashboard/home experience
 
-## Repository structure
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[Flutter UI] --> STATE[Riverpod State]
+    STATE --> SERVICES[Application Services]
+    SERVICES --> AUTH[Firebase Auth]
+    SERVICES --> DB[(Cloud Firestore)]
+    SERVICES --> STORAGE[Firebase Storage]
+    SERVICES --> FUNCTIONS[Cloud Functions]
+    FUNCTIONS --> FCM[FCM Notifications]
+    APP[Flutter App] --> CRASH[Crashlytics]
+```
+
+## Repository Structure
 
 ```text
 corehives/
@@ -42,7 +54,20 @@ corehives/
 └── update.json   Internal application update metadata
 ```
 
-## Run the Flutter application
+## Engineering Focus
+
+CoreHives demonstrates several production-oriented mobile patterns:
+
+- role-aware internal application workflows
+- Firebase-backed authentication and data access
+- structured state management with Riverpod
+- push-notification integration
+- server-side Cloud Function workflows
+- crash/error visibility with Crashlytics
+- internal Android release distribution outside the Play Store
+- application update metadata and version-management workflows
+
+## Run the Flutter Application
 
 ```bash
 cd mobile
@@ -58,7 +83,7 @@ flutter pub get
 flutter build apk --release
 ```
 
-## Internal distribution
+## Internal Distribution
 
 CoreHives includes an internal update flow for distributing Android builds outside the Play Store. See [`UPDATE_SYSTEM.md`](UPDATE_SYSTEM.md) for the repository's update-system notes.
 
