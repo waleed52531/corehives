@@ -1,9 +1,11 @@
 {
   "name": "corehives-functions",
-  "engines": { "node": "20" },
+  "engines": {
+    "node": "20"
+  },
   "main": "lib/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "node api.js && tsc",
     "serve": "npm run build && npx firebase emulators:start --only functions,firestore,auth,storage",
     "deploy": "firebase deploy --only functions"
   },
